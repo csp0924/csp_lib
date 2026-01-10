@@ -44,25 +44,20 @@ jobs:
       - name: Run tests
         run: pytest tests/ -v
 
-  # ============ 建置 Wheel (只有 Tag 和手動觸發) ============
+  # ============ 建置 Windows Wheel ============
   build_wheels:
-    name: Build wheel on ${{ matrix.os }}
+    name: Build wheel on Windows
     needs: [test]
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest]
-        python-version: ["3.13"]
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.13
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.13"
 
       - name: Install build dependencies
         run: |
@@ -75,7 +70,7 @@ jobs:
       - name: Upload wheel artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wheel-${{ matrix.os }}-py${{ matrix.python-version }}
+          name: wheel-windows
           path: dist/*.whl
 
   build_manylinux:
