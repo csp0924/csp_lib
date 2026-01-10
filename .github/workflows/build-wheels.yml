@@ -101,6 +101,8 @@ jobs:
     needs: [build_wheels, build_manylinux]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write  # 需要寫入權限來上傳 Release assets
 
     steps:
       - name: Download all wheels
@@ -115,3 +117,8 @@ jobs:
         with:
           password: ${{ secrets.PYPI_API_TOKEN }}
           packages-dir: dist/
+
+      - name: Upload wheels to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.whl
