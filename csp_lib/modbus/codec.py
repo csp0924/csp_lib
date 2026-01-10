@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .enums import ByteOrder, RegisterOrder
 from .exceptions import ModbusEncodeError, ModbusDecodeError
@@ -63,8 +63,6 @@ class ModbusCodec:
                 byte_order or ByteOrder.BIG_ENDIAN,
                 register_order or RegisterOrder.HIGH_FIRST,
             )
-        except ModbusEncodeError as e:
-            raise e
         except Exception as e:
             raise ModbusEncodeError(f"編碼失敗: {e}") from e
 
@@ -97,7 +95,8 @@ class ModbusCodec:
                 byte_order or ByteOrder.BIG_ENDIAN,
                 register_order or RegisterOrder.HIGH_FIRST,
             )
-        except ModbusDecodeError as e:
-            raise e
         except Exception as e:
             raise ModbusDecodeError(f"解碼失敗: {e}") from e
+
+
+__all__ = ["ModbusCodec"]

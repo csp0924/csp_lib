@@ -376,7 +376,7 @@ class TestDynamicUInt:
 
     def test_invalid_bit_width(self):
         with pytest.raises(ModbusConfigError):
-            DynamicUInt(24)  # 24 is valid (16 * 1.5, but we require multiples!)
+            DynamicUInt(24)  # 24 is not a multiple of 16 and should be invalid
         with pytest.raises(ModbusConfigError):
             DynamicUInt(17)  # Not a multiple of 16
 

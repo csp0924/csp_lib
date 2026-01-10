@@ -86,7 +86,6 @@ class DynamicInt(ModbusDataType):
         if register_order == RegisterOrder.HIGH_FIRST:
             registers.reverse()
 
-
         return registers
 
     def decode(

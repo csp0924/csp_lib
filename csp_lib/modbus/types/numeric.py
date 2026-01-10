@@ -247,7 +247,7 @@ class UInt64(ModbusDataType):
         register_order: RegisterOrder,
     ) -> int:
         if len(registers) < 4:
-            raise ModbusDecodeError(f"Uint64 需要 4 個暫存器，收到: {len(registers)}")
+            raise ModbusDecodeError(f"UInt64 需要 4 個暫存器，收到: {len(registers)}")
 
         regs = list(registers[:4])
         if register_order == RegisterOrder.LOW_FIRST:
