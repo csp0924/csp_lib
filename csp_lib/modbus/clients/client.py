@@ -107,7 +107,7 @@ class PymodbusTcpClient(AsyncModbusClientBase):
         if self._client is not None:
             self._client.close()
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """檢查連線狀態"""
         return self._client is not None and self._client.connected
 
@@ -305,12 +305,13 @@ class PymodbusRtuClient(AsyncModbusClientBase):
         """斷開 RTU 連線（釋放參考計數）"""
         await self._release_shared_resources()
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """檢查連線狀態"""
-        if self._port not in _rtu_instances:
-            return False
-        client, _, _ = _rtu_instances[self._port]
-        return client.connected
+        async with _rtu_instances_lock: 
+            if self._port not in _rtu_instances:
+                return False
+            client, _, _ = _rtu_instances[self._port]
+            return client.connected
 
     # ========== 讀取操作 (with shared lock) ==========
 
@@ -511,12 +512,13 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
         """斷開 TCP 連線（釋放參考計數）"""
         await self._release_shared_resources()
 
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """檢查連線狀態"""
-        if self._endpoint not in _tcp_instances:
-            return False
-        client, _, _ = _tcp_instances[self._endpoint]
-        return client.connected
+        async with _tcp_instances_lock:
+            if self._endpoint not in _tcp_instances:
+                return False
+            client, _, _ = _tcp_instances[self._endpoint]
+            return client.connected
 
     # ========== 讀取操作 (with shared lock) ==========
 

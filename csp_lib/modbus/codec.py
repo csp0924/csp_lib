@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .enums import ByteOrder, RegisterOrder
 from .exceptions import ModbusEncodeError, ModbusDecodeError
@@ -101,3 +101,7 @@ class ModbusCodec:
             raise e
         except Exception as e:
             raise ModbusDecodeError(f"解碼失敗: {e}") from e
+
+__all__ = [
+    "ModbusCodec",
+]

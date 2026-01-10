@@ -28,7 +28,7 @@ def _get_pymodbus_version() -> tuple[int, int, int]:
             int(parts[1]) if len(parts) > 1 else 0,
             int(parts[2].split("-")[0]) if len(parts) > 2 else 0,  # 處理 "3.10.0-dev"
         )
-    except (ImportError, ValueError, AttributeError):
+    except (ImportError, ValueError, AttributeError, IndexError):
         # 預設使用新版 API
         return (3, 10, 0)
 

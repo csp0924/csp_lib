@@ -19,7 +19,7 @@ class ModbusString(ModbusDataType):
     解碼時會自動去除尾部的 null 字元與空白。
 
     Args:
-        max_length: 最大字元數
+        max_length: 最大位元組數 (對於 ASCII 編碼等同於字元數，但 UTF-8 編碼一個字元可能佔多個位元組)
         encoding: 字元編碼，預設 "ascii"
 
     Raises:
@@ -46,7 +46,7 @@ class ModbusString(ModbusDataType):
 
     @property
     def max_length(self) -> int:
-        """最大字元數"""
+        """最大位元組數"""
         return self._max_length
 
     @property

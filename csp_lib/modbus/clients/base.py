@@ -32,7 +32,7 @@ class AsyncModbusClientBase(ABC):
         """斷開連線"""
 
     @abstractmethod
-    def is_connected(self) -> bool:
+    async def is_connected(self) -> bool:
         """檢查連線狀態"""
 
     # ========== 讀取操作 ==========
