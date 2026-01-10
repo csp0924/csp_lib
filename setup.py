@@ -3,14 +3,30 @@ Cython Build Script for csp_lib
 
 此腳本負責將 Python 原始碼編譯為二進位擴展模組 (.pyd/.so)。
 執行方式：python setup.py build_ext --inplace
+
+環境變數：
+    SKIP_CYTHON: 設為 "1" 跳過 Cython 編譯 (用於 CI 測試)
 """
 
 import os
 import sys
 from pathlib import Path
 
+from setuptools import setup
+
+# 檢查是否跳過 Cython 編譯
+SKIP_CYTHON = os.environ.get("SKIP_CYTHON", "0") == "1"
+
+if SKIP_CYTHON:
+    print("SKIP_CYTHON=1: Skipping Cython compilation")
+    setup(name="csp_lib", ext_modules=[], zip_safe=False)
+    # 提前退出，不執行後續編譯邏輯
+    sys.exit(0)
+
+# =============== Cython Build (僅在非 SKIP 模式執行) ===============
+
 from Cython.Build import cythonize
-from setuptools import Extension, setup
+from setuptools import Extension
 
 # =============== Configuration ===============
 

@@ -35,6 +35,8 @@ jobs:
 
       - name: Install dependencies
         run: uv sync --group dev --all-extras
+        env:
+          SKIP_CYTHON: "1"
 
       - name: Run tests
         run: uv run pytest tests/ -v
