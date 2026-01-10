@@ -1,5 +1,5 @@
 [project]
-name = "csp_lib"
+name = "csplib"
 dynamic = ["version"]
 description = "CSP Common Library - 模組化工具集"
 readme = "README.md"
@@ -19,7 +19,7 @@ modbus = [
     "pymodbus>=3.0.0",
 ]
 all = [
-    "csp_lib[mongo,redis,modbus]",
+    "csplib[mongo,redis,modbus]",
 ]
 
 # =============== Build System (Cython Binary Distribution) ===============
