@@ -475,8 +475,9 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
     def __init__(self, config: ModbusTcpConfig) -> None:
         self._config = config
         self._endpoint = f"{config.host}:{config.port}"
+        self._resources_acquired = False
 
-    async def _get_shared_resources(
+    async def _acquire_resources(
         self,
     ) -> tuple[AsyncModbusTcpClient, asyncio.Lock]:
         """
@@ -506,6 +507,20 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
             _tcp_instances[self._endpoint] = (client, lock, 1)
             return client, lock
 
+    async def _get_resources(
+        self,
+    ) -> tuple[AsyncModbusTcpClient, asyncio.Lock]:
+        """
+        取得共用資源（不增加 ref_count）
+
+        用於讀寫操作，僅取得已存在的資源。
+        """
+        async with _tcp_instances_lock:
+            if self._endpoint not in _tcp_instances:
+                raise ModbusError(f"尚未連線到 {self._endpoint}")
+            client, lock, _ = _tcp_instances[self._endpoint]
+            return client, lock
+
     async def _release_shared_resources(self) -> None:
         """釋放共用資源的參考計數"""
         global _tcp_instances
@@ -525,16 +540,27 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def connect(self) -> None:
         """建立 TCP 連線"""
-        client, lock = await self._get_shared_resources()
+        if self._resources_acquired:
+            return  # 已連線，避免重複計數
+
+        client, lock = await self._acquire_resources()
+        self._resources_acquired = True
+
         async with lock:
             if not client.connected:
                 connected = await client.connect()
                 if not connected:
+                    self._resources_acquired = False
+                    await self._release_shared_resources()
                     raise ModbusError(f"無法連線到 {self._endpoint}")
 
     async def disconnect(self) -> None:
         """斷開 TCP 連線（釋放參考計數）"""
+        if not self._resources_acquired:
+            return  # 未連線，無需釋放
+
         await self._release_shared_resources()
+        self._resources_acquired = False
 
     async def is_connected(self) -> bool:
         """檢查連線狀態"""
