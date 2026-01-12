@@ -10,10 +10,9 @@ from dataclasses import dataclass, field
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, Sequence
 
-from csp_lib.modbus import ByteOrder, RegisterOrder
+
 
 if TYPE_CHECKING:
-    from csp_lib.modbus import AsyncModbusClientBase
     from ..core.point import ReadPoint
 
 
@@ -35,7 +34,7 @@ class PointGrouper:
 
     使用範例：
         grouper = PointGrouper()
-        groups = grouper.compute(points)
+        groups = grouper.group(points)
     """
 
     # 各功能碼的最大讀取長度
@@ -74,7 +73,50 @@ class PointGrouper:
 
         return groups
 
-    
+    def decode(self, group: ReadGroup, raw_data: list[int] | list[bool]) -> dict[str, Any]:
+        """
+        解碼群組讀取結果
+
+        Args:
+            group: 讀取群組
+            raw_data: 原始資料
+
+        Returns:
+            {點位名稱: 值} 字典
+
+        Raises:
+            ValueError: 資料長度不足以解碼點位
+        """
+        result: dict[str, Any] = {}
+
+        for point in group.points:
+            # 計算偏移
+            offset = point.address - group.start_address
+            length = point.data_type.register_count
+
+            # 提取資料切片並驗證長度
+            data_slice = list(raw_data[offset : offset + length])
+            if len(data_slice) < length:
+                raise ValueError(
+                    f"資料不足以解碼點位 '{point.name}': "
+                    f"期望 {length} 個暫存器，實際 {len(data_slice)} "
+                    f"(offset={offset}, group.count={group.count})"
+                )
+
+            # 解碼
+            value = point.data_type.decode(
+                registers=data_slice,
+                byte_order=point.byte_order,
+                register_order=point.register_order,
+            )
+
+            if point.pipeline:
+                value = point.pipeline.process(value)
+
+            result[point.name] = value
+
+        return result
+
     def _merge_consecutive(
         self,
         points: list[ReadPoint],
