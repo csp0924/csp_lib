@@ -37,6 +37,15 @@ class AlarmEvaluator(ABC):
             {告警代碼: 是否觸發} 字典
         """
 
+    @abstractmethod
+    def get_alarms(self) -> list[AlarmDefinition]:
+        """
+        取得所有告警定義
+
+        Returns:
+            告警定義列表
+        """
+
 
 @dataclass
 class BitMaskAlarmEvaluator(AlarmEvaluator):
