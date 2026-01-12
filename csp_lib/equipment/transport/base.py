@@ -1,6 +1,6 @@
-# =============== Equipment IO - Reader ===============
+# =============== Equipment Transport - Base ===============
 #
-# 分組讀取器
+# 點位分組器
 #
 # 自動合併相鄰點位以減少請求次數
 
@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from itertools import groupby
-from typing import TYPE_CHECKING, Any, Sequence
+from typing import TYPE_CHECKING, Sequence
 
 if TYPE_CHECKING:
     from ..core.point import ReadPoint
@@ -65,50 +65,6 @@ class PointGrouper:
 
         return groups
 
-    def decode(self, group: ReadGroup, raw_data: list[int] | list[bool]) -> dict[str, Any]:
-        """
-        解碼群組讀取結果
-
-        Args:
-            group: 讀取群組
-            raw_data: 原始資料
-
-        Returns:
-            {點位名稱: 值} 字典
-
-        Raises:
-            ValueError: 資料長度不足以解碼點位
-        """
-        result: dict[str, Any] = {}
-
-        for point in group.points:
-            # 計算偏移
-            offset = point.address - group.start_address
-            length = point.data_type.register_count
-
-            # 提取資料切片並驗證長度
-            data_slice = list(raw_data[offset : offset + length])
-            if len(data_slice) < length:
-                raise ValueError(
-                    f"資料不足以解碼點位 '{point.name}': "
-                    f"期望 {length} 個暫存器，實際 {len(data_slice)} "
-                    f"(offset={offset}, group.count={group.count})"
-                )
-
-            # 解碼
-            value = point.data_type.decode(
-                registers=data_slice,
-                byte_order=point.byte_order,
-                register_order=point.register_order,
-            )
-
-            if point.pipeline:
-                value = point.pipeline.process(value)
-
-            result[point.name] = value
-
-        return result
-
     def _merge_consecutive(
         self, points: list[ReadPoint], function_code: int, max_length: int | None = None
     ) -> list[ReadGroup]:
@@ -153,3 +109,9 @@ class PointGrouper:
             )
 
         return groups
+
+
+__all__ = [
+    "PointGrouper",
+    "ReadGroup",
+]
