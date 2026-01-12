@@ -2,19 +2,20 @@
 #
 # 資料轉換步驟單元測試
 
-import pytest
 from dataclasses import FrozenInstanceError
 
+import pytest
+
 from csp_lib.equipment.core.transform import (
-    TransformStep,
-    ScaleTransform,
-    RoundTransform,
-    EnumMapTransform,
-    ClampTransform,
-    BoolTransform,
-    InverseTransform,
     BitExtractTransform,
+    BoolTransform,
+    ClampTransform,
+    EnumMapTransform,
+    InverseTransform,
     MultiFieldExtractTransform,
+    RoundTransform,
+    ScaleTransform,
+    TransformStep,
 )
 
 
@@ -111,9 +112,7 @@ class TestEnumMapTransform:
         assert transform.apply(99) == "UNKNOWN"
 
     def test_custom_default(self):
-        transform = EnumMapTransform(
-            mapping={0: "OFF", 1: "ON"}, default="UNDEFINED"
-        )
+        transform = EnumMapTransform(mapping={0: "OFF", 1: "ON"}, default="UNDEFINED")
         assert transform.apply(99) == "UNDEFINED"
 
     def test_float_converted_to_int(self):
@@ -343,9 +342,7 @@ class TestMultiFieldExtractTransform:
         assert result["status"] == 0b1010
 
     def test_field_names_property(self):
-        transform = MultiFieldExtractTransform(
-            fields=(("a", 0, 1), ("b", 1, 1), ("c", 8, 4))
-        )
+        transform = MultiFieldExtractTransform(fields=(("a", 0, 1), ("b", 1, 1), ("c", 8, 4)))
         assert transform.field_names == ("a", "b", "c")
 
     def test_empty_fields_raises(self):
@@ -408,7 +405,7 @@ class TestTransformStepProtocol:
 
         class SquareTransform:
             def apply(self, value):
-                return value ** 2
+                return value**2
 
         transform: TransformStep = SquareTransform()
         assert transform.apply(5) == 25

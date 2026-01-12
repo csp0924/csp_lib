@@ -2,17 +2,18 @@
 #
 # 資料處理管線單元測試
 
-import pytest
 from dataclasses import FrozenInstanceError
+
+import pytest
 
 from csp_lib.equipment.core.pipeline import ProcessingPipeline, pipeline
 from csp_lib.equipment.core.transform import (
-    ScaleTransform,
-    RoundTransform,
-    ClampTransform,
-    BoolTransform,
     BitExtractTransform,
+    BoolTransform,
+    ClampTransform,
     EnumMapTransform,
+    RoundTransform,
+    ScaleTransform,
 )
 
 

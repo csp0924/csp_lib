@@ -9,11 +9,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from csp_lib.modbus import ByteOrder, FunctionCode, ModbusDataType, RegisterOrder
-
 
 if TYPE_CHECKING:
     from .pipeline import ProcessingPipeline
@@ -29,7 +28,6 @@ class ValueValidator(Protocol):
     def get_error_message(self, value: Any) -> str:
         """取得錯誤訊息"""
         ...
-
 
 
 @dataclass(frozen=True)
@@ -58,11 +56,12 @@ class PointDefinition:
 class PointMetadata:
     """
     點位元資料（補充資訊）
-    
+
     Attributes:
         unit: 單位（如 kW, V, A）
         description: 描述
     """
+
     unit: str | None = None
     description: str | None = None
 
@@ -79,6 +78,7 @@ class ReadPoint(PointDefinition):
             - str: 只與相同 read_group 名稱的點位合併
         metadata: 點位元資料（可選）
     """
+
     pipeline: ProcessingPipeline | None = None
     read_group: str = ""
     metadata: PointMetadata | None = None

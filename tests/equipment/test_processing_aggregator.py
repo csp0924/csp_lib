@@ -2,14 +2,12 @@
 #
 # 聚合器單元測試
 
-import pytest
 
 from csp_lib.equipment.processing.aggregator import (
+    AggregatorPipeline,
     CoilToBitmaskAggregator,
     ComputedValueAggregator,
-    AggregatorPipeline,
 )
-
 
 # ======================== CoilToBitmaskAggregator Tests ========================
 
@@ -41,12 +39,14 @@ class TestCoilToBitmaskAggregator:
             output_name="error_mask",
             coil_names=["e1", "e2", "e3", "e4"],
         )
-        result = aggregator.process({
-            "e1": True,   # bit 0
-            "e2": False,  # bit 1
-            "e3": True,   # bit 2
-            "e4": False,  # bit 3
-        })
+        result = aggregator.process(
+            {
+                "e1": True,  # bit 0
+                "e2": False,  # bit 1
+                "e3": True,  # bit 2
+                "e4": False,  # bit 3
+            }
+        )
         assert result["error_mask"] == 0b0101
 
     def test_bit_order(self):
@@ -55,11 +55,13 @@ class TestCoilToBitmaskAggregator:
             output_name="mask",
             coil_names=["bit0", "bit1", "bit7"],
         )
-        result = aggregator.process({
-            "bit0": False,
-            "bit1": True,
-            "bit7": True,
-        })
+        result = aggregator.process(
+            {
+                "bit0": False,
+                "bit1": True,
+                "bit7": True,
+            }
+        )
         # bit1 = 0b010, bit7 = 0b100 => 0b110
         assert result["mask"] == 0b110
 
@@ -195,50 +197,56 @@ class TestAggregatorPipeline:
 
     def test_single_aggregator(self):
         """單一聚合器"""
-        pipeline = AggregatorPipeline(aggregators=[
-            ComputedValueAggregator(
-                output_name="sum",
-                source_names=["a", "b"],
-                compute_fn=lambda a, b: a + b,
-            ),
-        ])
+        pipeline = AggregatorPipeline(
+            aggregators=[
+                ComputedValueAggregator(
+                    output_name="sum",
+                    source_names=["a", "b"],
+                    compute_fn=lambda a, b: a + b,
+                ),
+            ]
+        )
         result = pipeline.process({"a": 1, "b": 2})
         assert result["sum"] == 3
 
     def test_multiple_aggregators(self):
         """多個聚合器串聯"""
-        pipeline = AggregatorPipeline(aggregators=[
-            # 第一步：計算總和
-            ComputedValueAggregator(
-                output_name="sum",
-                source_names=["a", "b"],
-                compute_fn=lambda a, b: a + b,
-            ),
-            # 第二步：用總和計算平均
-            ComputedValueAggregator(
-                output_name="avg",
-                source_names=["sum"],
-                compute_fn=lambda s: s / 2,
-            ),
-        ])
+        pipeline = AggregatorPipeline(
+            aggregators=[
+                # 第一步：計算總和
+                ComputedValueAggregator(
+                    output_name="sum",
+                    source_names=["a", "b"],
+                    compute_fn=lambda a, b: a + b,
+                ),
+                # 第二步：用總和計算平均
+                ComputedValueAggregator(
+                    output_name="avg",
+                    source_names=["sum"],
+                    compute_fn=lambda s: s / 2,
+                ),
+            ]
+        )
         result = pipeline.process({"a": 10, "b": 20})
         assert result["sum"] == 30
         assert result["avg"] == 15.0
 
     def test_aggregator_chain_order(self):
         """聚合器執行順序"""
-        pipeline = AggregatorPipeline(aggregators=[
-            CoilToBitmaskAggregator(
-                output_name="mask",
-                coil_names=["c1", "c2"],
-                remove_source=True,
-            ),
-            ComputedValueAggregator(
-                output_name="has_error",
-                source_names=["mask"],
-                compute_fn=lambda m: m > 0 if m is not None else None,
-            ),
-        ])
+        pipeline = AggregatorPipeline(
+            aggregators=[
+                CoilToBitmaskAggregator(
+                    output_name="mask",
+                    coil_names=["c1", "c2"],
+                    remove_source=True,
+                ),
+                ComputedValueAggregator(
+                    output_name="has_error",
+                    source_names=["mask"],
+                    compute_fn=lambda m: m > 0 if m is not None else None,
+                ),
+            ]
+        )
         result = pipeline.process({"c1": True, "c2": False})
         assert result["mask"] == 0b01
         assert result["has_error"] is True
@@ -247,25 +255,31 @@ class TestAggregatorPipeline:
 
     def test_mixed_aggregators(self):
         """混合使用不同類型聚合器"""
-        pipeline = AggregatorPipeline(aggregators=[
-            CoilToBitmaskAggregator(
-                output_name="error1",
-                coil_names=["e1", "e2"],
-            ),
-            CoilToBitmaskAggregator(
-                output_name="error2",
-                coil_names=["e3", "e4"],
-            ),
-            ComputedValueAggregator(
-                output_name="total_errors",
-                source_names=["error1", "error2"],
-                compute_fn=lambda a, b: bin(a).count("1") + bin(b).count("1") if a and b else 0,
-            ),
-        ])
-        result = pipeline.process({
-            "e1": True, "e2": True,  # error1 = 0b11 (2 errors)
-            "e3": True, "e4": False, # error2 = 0b01 (1 error)
-        })
+        pipeline = AggregatorPipeline(
+            aggregators=[
+                CoilToBitmaskAggregator(
+                    output_name="error1",
+                    coil_names=["e1", "e2"],
+                ),
+                CoilToBitmaskAggregator(
+                    output_name="error2",
+                    coil_names=["e3", "e4"],
+                ),
+                ComputedValueAggregator(
+                    output_name="total_errors",
+                    source_names=["error1", "error2"],
+                    compute_fn=lambda a, b: bin(a).count("1") + bin(b).count("1") if a and b else 0,
+                ),
+            ]
+        )
+        result = pipeline.process(
+            {
+                "e1": True,
+                "e2": True,  # error1 = 0b11 (2 errors)
+                "e3": True,
+                "e4": False,  # error2 = 0b01 (1 error)
+            }
+        )
         assert result["error1"] == 0b11
         assert result["error2"] == 0b01
         assert result["total_errors"] == 3

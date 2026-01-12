@@ -2,22 +2,22 @@
 #
 # 告警狀態管理單元測試
 
-import pytest
 from datetime import datetime, timedelta
 from unittest.mock import patch
 
+import pytest
+
 from csp_lib.equipment.alarm.definition import (
+    AlarmDefinition,
     AlarmLevel,
     HysteresisConfig,
-    AlarmDefinition,
 )
 from csp_lib.equipment.alarm.state import (
-    AlarmEventType,
     AlarmEvent,
+    AlarmEventType,
     AlarmState,
     AlarmStateManager,
 )
-
 
 # ======================== Fixtures ========================
 

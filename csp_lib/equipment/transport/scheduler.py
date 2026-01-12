@@ -51,9 +51,7 @@ class ReadScheduler:
             rotating_groups: 輪流讀取的分組列表
         """
         self._always_groups: list[ReadGroup] = list(always_groups) if always_groups else []
-        self._rotating_groups: list[list[ReadGroup]] = [
-            list(g) for g in rotating_groups
-        ] if rotating_groups else []
+        self._rotating_groups: list[list[ReadGroup]] = [list(g) for g in rotating_groups] if rotating_groups else []
         self._rotating_index = 0
 
     def get_next_groups(self) -> list[ReadGroup]:

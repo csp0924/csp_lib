@@ -2,20 +2,21 @@
 #
 # 點位定義單元測試
 
-import pytest
 from dataclasses import FrozenInstanceError
 
-from csp_lib.modbus import ByteOrder, FunctionCode, RegisterOrder, UInt16, Int32, Float32
+import pytest
+
 from csp_lib.equipment.core.point import (
-    ValueValidator,
+    CompositeValidator,
+    EnumValidator,
     PointDefinition,
     PointMetadata,
-    ReadPoint,
-    WritePoint,
     RangeValidator,
-    EnumValidator,
-    CompositeValidator,
+    ReadPoint,
+    ValueValidator,
+    WritePoint,
 )
+from csp_lib.modbus import ByteOrder, Float32, FunctionCode, Int32, RegisterOrder, UInt16
 
 
 class TestPointDefinition:
@@ -101,9 +102,7 @@ class TestReadPoint:
 
     def test_with_read_group(self):
         """可以指定 read_group"""
-        point = ReadPoint(
-            name="test", address=0, data_type=UInt16(), read_group="status"
-        )
+        point = ReadPoint(name="test", address=0, data_type=UInt16(), read_group="status")
         assert point.read_group == "status"
 
     def test_with_metadata(self):
@@ -146,9 +145,7 @@ class TestWritePoint:
     def test_with_validator(self):
         """可以附加 validator"""
         validator = RangeValidator(min_value=0, max_value=100)
-        point = WritePoint(
-            name="power_setpoint", address=0, data_type=UInt16(), validator=validator
-        )
+        point = WritePoint(name="power_setpoint", address=0, data_type=UInt16(), validator=validator)
         assert point.validator is not None
         assert point.validator.validate(50) is True
         assert point.validator.validate(150) is False

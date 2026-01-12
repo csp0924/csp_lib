@@ -4,9 +4,8 @@
 
 import pytest
 
-from csp_lib.modbus import ByteOrder, RegisterOrder, UInt16, Int32, Float32
 from csp_lib.equipment.processing.decoder import ModbusDecoder, ModbusEncoder
-
+from csp_lib.modbus import ByteOrder, Float32, Int32, RegisterOrder, UInt16
 
 # ======================== ModbusDecoder Tests ========================
 

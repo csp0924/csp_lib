@@ -4,14 +4,15 @@
 #
 # 測試基於理論行為設計，驗證分組邏輯正確性
 
-import pytest
 from dataclasses import FrozenInstanceError
 
-from csp_lib.modbus import FunctionCode, UInt16, Int32, Float32
-from csp_lib.equipment.core.point import ReadPoint
+import pytest
+
 from csp_lib.equipment.core.pipeline import pipeline
-from csp_lib.equipment.core.transform import ScaleTransform, RoundTransform, ClampTransform
-from csp_lib.equipment.transport.base import ReadGroup, PointGrouper
+from csp_lib.equipment.core.point import ReadPoint
+from csp_lib.equipment.core.transform import ClampTransform, RoundTransform, ScaleTransform
+from csp_lib.equipment.transport.base import PointGrouper, ReadGroup
+from csp_lib.modbus import Float32, FunctionCode, Int32, UInt16
 
 
 class TestReadGroup:
@@ -26,12 +27,7 @@ class TestReadGroup:
     def test_basic_creation(self):
         """正確建立並存取所有欄位"""
         point = ReadPoint(name="test", address=100, data_type=UInt16())
-        group = ReadGroup(
-            function_code=3,
-            start_address=100,
-            count=5,
-            points=(point,)
-        )
+        group = ReadGroup(function_code=3, start_address=100, count=5, points=(point,))
         assert group.function_code == 3
         assert group.start_address == 100
         assert group.count == 5
@@ -54,7 +50,7 @@ class TestPointGrouperBasicBehavior:
         """單一點位應產生單一群組"""
         point = ReadPoint(name="p1", address=100, data_type=UInt16())
         result = grouper.group([point])
-        
+
         assert len(result) == 1
         assert result[0].start_address == 100
         assert result[0].count == 1
@@ -65,7 +61,7 @@ class TestPointGrouperBasicBehavior:
         p1 = ReadPoint(name="p1", address=100, data_type=UInt16())
         p2 = ReadPoint(name="p2", address=101, data_type=UInt16())
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 1
         assert result[0].start_address == 100
         assert result[0].count == 2
@@ -79,7 +75,7 @@ class TestPointGrouperBasicBehavior:
         p1 = ReadPoint(name="p1", address=100, data_type=UInt16())
         p2 = ReadPoint(name="p2", address=200, data_type=UInt16())
         result = grouper.group([p1, p2])
-        
+
         # 200 + 1 - 100 = 101，在 125 限制內，會合併
         assert len(result) == 1
         assert result[0].start_address == 100
@@ -98,7 +94,7 @@ class TestPointGrouperReadGroupSeparation:
         p1 = ReadPoint(name="p1", address=100, data_type=UInt16(), read_group="group_a")
         p2 = ReadPoint(name="p2", address=101, data_type=UInt16(), read_group="group_b")
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 2
         # 驗證各群組只包含對應的點位
         group_a = [g for g in result if p1 in g.points][0]
@@ -111,7 +107,7 @@ class TestPointGrouperReadGroupSeparation:
         p1 = ReadPoint(name="p1", address=100, data_type=UInt16(), read_group="status")
         p2 = ReadPoint(name="p2", address=101, data_type=UInt16(), read_group="status")
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 1
         assert result[0].points == (p1, p2)
 
@@ -120,7 +116,7 @@ class TestPointGrouperReadGroupSeparation:
         p1 = ReadPoint(name="p1", address=100, data_type=UInt16(), read_group="")
         p2 = ReadPoint(name="p2", address=101, data_type=UInt16(), read_group="named")
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 2
 
 
@@ -133,16 +129,10 @@ class TestPointGrouperFunctionCodeSeparation:
 
     def test_different_function_codes_separate(self, grouper: PointGrouper):
         """不同 function_code 的點位必須分成不同群組"""
-        p1 = ReadPoint(
-            name="p1", address=100, data_type=UInt16(),
-            function_code=FunctionCode.READ_HOLDING_REGISTERS
-        )
-        p2 = ReadPoint(
-            name="p2", address=101, data_type=UInt16(),
-            function_code=FunctionCode.READ_INPUT_REGISTERS
-        )
+        p1 = ReadPoint(name="p1", address=100, data_type=UInt16(), function_code=FunctionCode.READ_HOLDING_REGISTERS)
+        p2 = ReadPoint(name="p2", address=101, data_type=UInt16(), function_code=FunctionCode.READ_INPUT_REGISTERS)
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 2
         fc_codes = {g.function_code for g in result}
         assert fc_codes == {3, 4}
@@ -150,15 +140,13 @@ class TestPointGrouperFunctionCodeSeparation:
     def test_holding_and_input_registers(self, grouper: PointGrouper):
         """FC=3 和 FC=4 的點位必須分開，即使位址連續"""
         p_holding = ReadPoint(
-            name="holding", address=100, data_type=UInt16(),
-            function_code=FunctionCode.READ_HOLDING_REGISTERS
+            name="holding", address=100, data_type=UInt16(), function_code=FunctionCode.READ_HOLDING_REGISTERS
         )
         p_input = ReadPoint(
-            name="input", address=101, data_type=UInt16(),
-            function_code=FunctionCode.READ_INPUT_REGISTERS
+            name="input", address=101, data_type=UInt16(), function_code=FunctionCode.READ_INPUT_REGISTERS
         )
         result = grouper.group([p_holding, p_input])
-        
+
         assert len(result) == 2
         holding_group = [g for g in result if g.function_code == 3][0]
         input_group = [g for g in result if g.function_code == 4][0]
@@ -179,7 +167,7 @@ class TestPointGrouperMaxLengthLimit:
         p1 = ReadPoint(name="p1", address=0, data_type=UInt16())
         p2 = ReadPoint(name="p2", address=200, data_type=UInt16())  # 200 + 1 - 0 = 201 > 125
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 2
 
     def test_exactly_max_length_single_register(self, grouper: PointGrouper):
@@ -188,37 +176,31 @@ class TestPointGrouperMaxLengthLimit:
         p1 = ReadPoint(name="p1", address=0, data_type=UInt16())
         p2 = ReadPoint(name="p2", address=124, data_type=UInt16())
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 1
         assert result[0].count == 125
 
     def test_exactly_max_length_but_last_point_exceeds(self, grouper: PointGrouper):
         """
         剛好最大長度，但最後一個點的 datatype 長度 > 1 時應該分開
-        
+
         例如：位址 0 和 124，第二個點為 Int32 (佔 2 個暫存器)
         範圍應為 0 ~ 125 (共 126)，超過 125 限制
         """
         p1 = ReadPoint(name="p1", address=0, data_type=UInt16())
         p2 = ReadPoint(name="p2", address=124, data_type=Int32())  # 佔用 124, 125
         result = grouper.group([p1, p2])
-        
+
         # 範圍 = 124 + 2 - 0 = 126 > 125，應該拆分
         assert len(result) == 2
 
     def test_coils_max_length_2000(self, grouper: PointGrouper):
         """FC=1 (Read Coils) 應使用 2000 的最大長度"""
         # 使用超過 125 但小於 2000 的範圍
-        p1 = ReadPoint(
-            name="p1", address=0, data_type=UInt16(),
-            function_code=FunctionCode.READ_COILS
-        )
-        p2 = ReadPoint(
-            name="p2", address=500, data_type=UInt16(),
-            function_code=FunctionCode.READ_COILS
-        )
+        p1 = ReadPoint(name="p1", address=0, data_type=UInt16(), function_code=FunctionCode.READ_COILS)
+        p2 = ReadPoint(name="p2", address=500, data_type=UInt16(), function_code=FunctionCode.READ_COILS)
         result = grouper.group([p1, p2])
-        
+
         # 501 < 2000，應該合併
         assert len(result) == 1
 
@@ -236,7 +218,7 @@ class TestPointGrouperEdgeCases:
         p1 = ReadPoint(name="p1", address=100, data_type=Int32())
         p2 = ReadPoint(name="p2", address=101, data_type=Int32())
         result = grouper.group([p1, p2])
-        
+
         assert len(result) == 1
         # 範圍應為 100 ~ 102，共 3 個暫存器
         assert result[0].start_address == 100
@@ -248,7 +230,7 @@ class TestPointGrouperEdgeCases:
         p2 = ReadPoint(name="p2", address=100, data_type=UInt16())
         p3 = ReadPoint(name="p3", address=150, data_type=UInt16())
         result = grouper.group([p1, p2, p3])
-        
+
         # 應該先排序再處理，101 在 125 限制內
         assert len(result) == 1
         assert result[0].start_address == 100
@@ -259,11 +241,11 @@ class TestPointGrouperEdgeCases:
 
     def test_multiple_register_types_mixed(self, grouper: PointGrouper):
         """不同 register_count 的資料類型混合時正確處理"""
-        p1 = ReadPoint(name="uint16", address=100, data_type=UInt16())   # 1 reg
-        p2 = ReadPoint(name="int32", address=101, data_type=Int32())    # 2 regs
+        p1 = ReadPoint(name="uint16", address=100, data_type=UInt16())  # 1 reg
+        p2 = ReadPoint(name="int32", address=101, data_type=Int32())  # 2 regs
         p3 = ReadPoint(name="float32", address=103, data_type=Float32())  # 2 regs
         result = grouper.group([p1, p2, p3])
-        
+
         assert len(result) == 1
         assert result[0].start_address == 100
         # count = 105 - 100 = 5 (100, 101-102, 103-104)
@@ -279,12 +261,15 @@ class TestPointGrouperEdgeCases:
             ReadPoint(name="a2", address=1, data_type=UInt16(), read_group="a"),
             ReadPoint(name="b1", address=0, data_type=UInt16(), read_group="b"),
             ReadPoint(
-                name="a_input", address=0, data_type=UInt16(), read_group="a",
-                function_code=FunctionCode.READ_INPUT_REGISTERS
+                name="a_input",
+                address=0,
+                data_type=UInt16(),
+                read_group="a",
+                function_code=FunctionCode.READ_INPUT_REGISTERS,
             ),
         ]
         result = grouper.group(points)
-        
+
         # 應有 3 個群組：
         # 1. read_group="a", FC=3 (a1, a2)
         # 2. read_group="b", FC=3 (b1)
@@ -529,4 +514,3 @@ class TestPointGrouperDecode:
 
         assert result["temperature"] == 25.0
         assert result["power"] == 5.0
-

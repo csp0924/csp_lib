@@ -134,7 +134,7 @@ class TableAlarmEvaluator(AlarmEvaluator):
         if value in self.table:
             alarm = self.table[value]
             result[alarm.code] = True
-        
+
         return result
 
     def get_alarms(self) -> list[AlarmDefinition]:
@@ -181,6 +181,7 @@ class ThresholdCondition:
         if self.operator == Operator.NE:
             return actual_value != self.value
         raise ValueError(f"Invalid operator: {self.operator}")
+
 
 @dataclass
 class ThresholdAlarmEvaluator(AlarmEvaluator):

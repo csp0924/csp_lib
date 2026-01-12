@@ -10,8 +10,6 @@ from dataclasses import dataclass, field
 from itertools import groupby
 from typing import TYPE_CHECKING, Any, Sequence
 
-
-
 if TYPE_CHECKING:
     from ..core.point import ReadPoint
 
@@ -41,8 +39,8 @@ class PointGrouper:
     FC_MAX_LENGTH: dict[int, int] = {
         1: 2000,  # Read Coils
         2: 2000,  # Read Discrete Inputs
-        3: 125,   # Read Holding Registers
-        4: 125,   # Read Input Registers
+        3: 125,  # Read Holding Registers
+        4: 125,  # Read Input Registers
     }
 
     def group(self, points: Sequence[ReadPoint]) -> list[ReadGroup]:
@@ -58,17 +56,11 @@ class PointGrouper:
         if not points:
             return []
 
-        sorted_points = sorted(
-            points,
-            key=lambda p: (p.read_group, p.function_code, p.address)
-        )
+        sorted_points = sorted(points, key=lambda p: (p.read_group, p.function_code, p.address))
 
         groups: list[ReadGroup] = []
 
-        for (_, function_code), function_point in groupby(
-            sorted_points,
-            key=lambda p: (p.read_group, p.function_code)
-        ):
+        for (_, function_code), function_point in groupby(sorted_points, key=lambda p: (p.read_group, p.function_code)):
             groups.extend(self._merge_consecutive(list(function_point), function_code))
 
         return groups
@@ -118,10 +110,7 @@ class PointGrouper:
         return result
 
     def _merge_consecutive(
-        self,
-        points: list[ReadPoint],
-        function_code: int,
-        max_length: int | None = None
+        self, points: list[ReadPoint], function_code: int, max_length: int | None = None
     ) -> list[ReadGroup]:
         """
         合併連續點位成群組
@@ -136,7 +125,7 @@ class PointGrouper:
         """
         max_length = max_length or self.FC_MAX_LENGTH.get(function_code, 125)
         groups: list[ReadGroup] = []
-        
+
         current: list[ReadPoint] = []
         start = 0
         end = 0
@@ -154,19 +143,13 @@ class PointGrouper:
                 end = max(end, p_end)
                 continue
 
-            groups.append(ReadGroup(
-                function_code=function_code,
-                start_address=start,
-                count=end - start,
-                points=tuple(current)
-            ))
-        
+            groups.append(
+                ReadGroup(function_code=function_code, start_address=start, count=end - start, points=tuple(current))
+            )
+
         if current:
-            groups.append(ReadGroup(
-                function_code=function_code,
-                start_address=start,
-                count=end - start,
-                points=tuple(current)
-            ))
+            groups.append(
+                ReadGroup(function_code=function_code, start_address=start, count=end - start, points=tuple(current))
+            )
 
         return groups

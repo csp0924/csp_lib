@@ -52,7 +52,6 @@ class AlarmState:
     cleared_at: datetime | None = None
     last_triggered_at: datetime | None = None
 
-
     @property
     def duration(self) -> float | None:
         """
@@ -192,7 +191,7 @@ class AlarmStateManager:
 
         return events
 
-    def clear_alarm(self, code:str) -> AlarmEvent | None:
+    def clear_alarm(self, code: str) -> AlarmEvent | None:
         """
         強制清除告警
 
@@ -236,10 +235,7 @@ class AlarmStateManager:
         Returns:
             bool: 如果存在保護性告警則返回 True，否則返回 False
         """
-        return any(
-            state.is_active and state.definition.level == AlarmLevel.ALARM
-            for state in self._states.values()
-        )
+        return any(state.is_active and state.definition.level == AlarmLevel.ALARM for state in self._states.values())
 
     def reset(self) -> None:
         """

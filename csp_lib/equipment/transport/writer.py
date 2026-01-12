@@ -13,9 +13,8 @@ from typing import TYPE_CHECKING, Any
 from csp_lib.modbus.enums import FunctionCode
 
 if TYPE_CHECKING:
-    from csp_lib.modbus import AsyncModbusClientBase
-
     from csp_lib.equipment.core.point import WritePoint
+    from csp_lib.modbus import AsyncModbusClientBase
 
 
 class WriteStatus(Enum):
@@ -67,7 +66,7 @@ class ValidatedWriter:
                 status=WriteStatus.VALIDATION_FAILED,
                 point_name=point.name,
                 value=value,
-                error_message=point.validator.get_error_message(value)
+                error_message=point.validator.get_error_message(value),
             )
 
         try:
@@ -94,10 +93,7 @@ class ValidatedWriter:
 
         except Exception as e:
             return WriteResult(
-                status=WriteStatus.WRITE_FAILED,
-                point_name=point.name,
-                value=value,
-                error_message=str(e)
+                status=WriteStatus.WRITE_FAILED, point_name=point.name, value=value, error_message=str(e)
             )
 
     def _encode(self, point: WritePoint, value: Any) -> list[int] | int | bool:
@@ -166,6 +162,7 @@ class ValidatedWriter:
         if isinstance(expected, float) and isinstance(actual, float):
             return abs(expected - actual) < 1e-6
         return expected == actual
+
 
 __all__ = [
     "WriteResult",

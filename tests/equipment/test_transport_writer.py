@@ -12,20 +12,18 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
-from csp_lib.modbus import FunctionCode, UInt16, Int32, Float32
 from csp_lib.equipment.core.point import WritePoint
 from csp_lib.equipment.transport.writer import (
     ValidatedWriter,
     WriteResult,
     WriteStatus,
 )
-
+from csp_lib.modbus import Float32, FunctionCode, Int32, UInt16
 
 # ======================== Mock Fixtures ========================
 
@@ -111,9 +109,7 @@ class TestValidatedWriterBasicWrite:
     """ValidatedWriter 基本寫入測試"""
 
     @pytest.mark.asyncio
-    async def test_write_single_register_success(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_single_register_success(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入單一暫存器 (FC=6) 成功"""
         point = WritePoint(
             name="power",
@@ -126,14 +122,10 @@ class TestValidatedWriterBasicWrite:
         assert result.status == WriteStatus.SUCCESS
         assert result.point_name == "power"
         assert result.value == 500
-        mock_client.write_register.assert_called_once_with(
-            address=100, value=500
-        )
+        mock_client.write_register.assert_called_once_with(address=100, value=500)
 
     @pytest.mark.asyncio
-    async def test_write_multiple_registers_success(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_multiple_registers_success(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入多個暫存器 (FC=16) 成功"""
         point = WritePoint(
             name="power",
@@ -151,9 +143,7 @@ class TestValidatedWriterBasicWrite:
         assert len(call_args.kwargs["values"]) == 2
 
     @pytest.mark.asyncio
-    async def test_write_single_coil_success(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_single_coil_success(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入單一線圈 (FC=5) 成功"""
         point = WritePoint(
             name="switch",
@@ -164,14 +154,10 @@ class TestValidatedWriterBasicWrite:
         result = await writer.write(point, 1)
 
         assert result.status == WriteStatus.SUCCESS
-        mock_client.write_single_coil.assert_called_once_with(
-            address=0, value=True
-        )
+        mock_client.write_single_coil.assert_called_once_with(address=0, value=True)
 
     @pytest.mark.asyncio
-    async def test_write_multiple_coils_success(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_multiple_coils_success(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入多個線圈 (FC=15) 成功"""
         point = WritePoint(
             name="switches",
@@ -192,9 +178,7 @@ class TestValidatedWriterAddressOffset:
     """address_offset 測試"""
 
     @pytest.mark.asyncio
-    async def test_offset_applied_to_write(
-        self, writer_with_offset: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_offset_applied_to_write(self, writer_with_offset: ValidatedWriter, mock_client: AsyncMock):
         """寫入時應套用 address_offset"""
         point = WritePoint(
             name="power",
@@ -205,14 +189,10 @@ class TestValidatedWriterAddressOffset:
         await writer_with_offset.write(point, 500)
 
         # 100 + 1 = 101
-        mock_client.write_register.assert_called_once_with(
-            address=101, value=500
-        )
+        mock_client.write_register.assert_called_once_with(address=101, value=500)
 
     @pytest.mark.asyncio
-    async def test_offset_applied_to_readback(
-        self, writer_with_offset: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_offset_applied_to_readback(self, writer_with_offset: ValidatedWriter, mock_client: AsyncMock):
         """讀回驗證時也應套用 address_offset"""
         mock_client.read_holding_registers.return_value = [500]
 
@@ -234,9 +214,7 @@ class TestValidatedWriterValidation:
     """驗證器測試"""
 
     @pytest.mark.asyncio
-    async def test_validation_failed_returns_status(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_validation_failed_returns_status(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """驗證失敗時應回傳 VALIDATION_FAILED 狀態"""
         validator = MockValidator(should_pass=False, error_msg="值超出範圍")
         point = WritePoint(
@@ -254,9 +232,7 @@ class TestValidatedWriterValidation:
         mock_client.write_register.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_validation_get_error_message_receives_value(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_validation_get_error_message_receives_value(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """get_error_message 應收到正確的 value 參數"""
         validator = MockValidator(should_pass=False, error_msg="值超出範圍")
         point = WritePoint(
@@ -275,9 +251,7 @@ class TestValidatedWriterValidation:
         assert validator.last_error_message_value == test_value
 
     @pytest.mark.asyncio
-    async def test_validation_passed_continues_write(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_validation_passed_continues_write(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """驗證通過時應繼續寫入"""
         validator = MockValidator(should_pass=True)
         point = WritePoint(
@@ -294,9 +268,7 @@ class TestValidatedWriterValidation:
         mock_client.write_register.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_no_validator_skips_validation(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_no_validator_skips_validation(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """無驗證器時應直接寫入"""
         point = WritePoint(
             name="power",
@@ -318,9 +290,7 @@ class TestValidatedWriterExceptions:
     """寫入異常測試"""
 
     @pytest.mark.asyncio
-    async def test_write_exception_returns_failed_status(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_exception_returns_failed_status(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入異常時應回傳 WRITE_FAILED 狀態"""
         mock_client.write_register.side_effect = Exception("連線逾時")
         point = WritePoint(
@@ -336,9 +306,7 @@ class TestValidatedWriterExceptions:
         assert "連線逾時" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_unsupported_function_code_raises(
-        self, writer: ValidatedWriter
-    ):
+    async def test_unsupported_function_code_raises(self, writer: ValidatedWriter):
         """不支援的 FunctionCode 應回傳失敗"""
         point = WritePoint(
             name="invalid",
@@ -360,9 +328,7 @@ class TestValidatedWriterVerification:
     """讀回驗證測試"""
 
     @pytest.mark.asyncio
-    async def test_verify_success_register(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_verify_success_register(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """讀回驗證成功 (register)"""
         mock_client.read_holding_registers.return_value = [500]
         point = WritePoint(
@@ -378,9 +344,7 @@ class TestValidatedWriterVerification:
         mock_client.read_holding_registers.assert_called_once_with(100, 1)
 
     @pytest.mark.asyncio
-    async def test_verify_success_coil(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_verify_success_coil(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """讀回驗證成功 (coil)"""
         mock_client.read_coils.return_value = [True]
         point = WritePoint(
@@ -396,9 +360,7 @@ class TestValidatedWriterVerification:
         mock_client.read_coils.assert_called_once_with(0, 1)
 
     @pytest.mark.asyncio
-    async def test_verify_mismatch_returns_failed(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_verify_mismatch_returns_failed(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """讀回值不匹配應回傳 VERIFICATION_FAILED"""
         mock_client.read_holding_registers.return_value = [999]  # 不同於寫入值
         point = WritePoint(
@@ -416,9 +378,7 @@ class TestValidatedWriterVerification:
         assert "999" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_verify_disabled_skips_readback(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_verify_disabled_skips_readback(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """verify=False 時不應讀回"""
         point = WritePoint(
             name="power",
@@ -473,9 +433,7 @@ class TestValidatedWriterEncoding:
     """編碼邊界情況測試"""
 
     @pytest.mark.asyncio
-    async def test_single_register_fc_with_multi_register_type_raises(
-        self, writer: ValidatedWriter
-    ):
+    async def test_single_register_fc_with_multi_register_type_raises(self, writer: ValidatedWriter):
         """單一暫存器 FC 搭配多暫存器 DataType 應失敗"""
         point = WritePoint(
             name="invalid",
@@ -490,9 +448,7 @@ class TestValidatedWriterEncoding:
         assert "只能寫入一個暫存器" in result.error_message
 
     @pytest.mark.asyncio
-    async def test_write_zero_value(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_zero_value(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入零值"""
         point = WritePoint(
             name="power",
@@ -507,9 +463,7 @@ class TestValidatedWriterEncoding:
         mock_client.write_register.assert_called_once_with(address=100, value=0)
 
     @pytest.mark.asyncio
-    async def test_write_max_uint16_value(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_max_uint16_value(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入 UInt16 最大值"""
         point = WritePoint(
             name="max_value",
@@ -521,14 +475,10 @@ class TestValidatedWriterEncoding:
         result = await writer.write(point, 65535)
 
         assert result.status == WriteStatus.SUCCESS
-        mock_client.write_register.assert_called_once_with(
-            address=100, value=65535
-        )
+        mock_client.write_register.assert_called_once_with(address=100, value=65535)
 
     @pytest.mark.asyncio
-    async def test_write_float32(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_write_float32(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """寫入 Float32"""
         point = WritePoint(
             name="temperature",
@@ -551,9 +501,7 @@ class TestValidatedWriterDefaultFunctionCode:
     """預設 FunctionCode 測試"""
 
     @pytest.mark.asyncio
-    async def test_default_fc_is_write_multiple_registers(
-        self, writer: ValidatedWriter, mock_client: AsyncMock
-    ):
+    async def test_default_fc_is_write_multiple_registers(self, writer: ValidatedWriter, mock_client: AsyncMock):
         """WritePoint 預設 FC 應為 WRITE_MULTIPLE_REGISTERS"""
         point = WritePoint(
             name="value",

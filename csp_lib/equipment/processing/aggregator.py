@@ -12,8 +12,7 @@ from typing import Any, Callable, Protocol
 
 @dataclass
 class Processor(Protocol):
-    def process(self, values: dict[str, Any]) -> dict[str, Any]:
-        ...
+    def process(self, values: dict[str, Any]) -> dict[str, Any]: ...
 
 
 @dataclass

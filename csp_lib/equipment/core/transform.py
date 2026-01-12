@@ -23,7 +23,7 @@ class TransformStep(Protocol):
         """套用轉換"""
         ...
 
-    
+
 @dataclass(frozen=True)
 class ScaleTransform:
     """

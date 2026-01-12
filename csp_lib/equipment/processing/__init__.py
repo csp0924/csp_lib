@@ -9,7 +9,6 @@ from .aggregator import (
 )
 from .decoder import ModbusDecoder, ModbusEncoder
 
-
 __all__ = [
     # Decoder/Encoder
     "ModbusDecoder",

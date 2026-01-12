@@ -3,10 +3,10 @@
 # 告警模組匯出
 
 from .definition import (
+    NO_HYSTERESIS,
     AlarmDefinition,
     AlarmLevel,
     HysteresisConfig,
-    NO_HYSTERESIS,
 )
 from .evaluator import (
     AlarmEvaluator,

@@ -2,14 +2,15 @@
 #
 # 告警定義單元測試
 
-import pytest
 from dataclasses import FrozenInstanceError
 
+import pytest
+
 from csp_lib.equipment.alarm.definition import (
+    NO_HYSTERESIS,
+    AlarmDefinition,
     AlarmLevel,
     HysteresisConfig,
-    AlarmDefinition,
-    NO_HYSTERESIS,
 )
 
 

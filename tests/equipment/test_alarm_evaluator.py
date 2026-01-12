@@ -2,19 +2,19 @@
 #
 # 告警評估器單元測試
 
-import pytest
 from dataclasses import FrozenInstanceError
+
+import pytest
 
 from csp_lib.equipment.alarm.definition import AlarmDefinition, AlarmLevel
 from csp_lib.equipment.alarm.evaluator import (
     AlarmEvaluator,
     BitMaskAlarmEvaluator,
+    Operator,
     TableAlarmEvaluator,
     ThresholdAlarmEvaluator,
     ThresholdCondition,
-    Operator,
 )
-
 
 # ======================== Fixtures ========================
 
@@ -341,9 +341,7 @@ class TestThresholdAlarmEvaluator:
         """point_name 屬性"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         assert evaluator.point_name == "temperature"
 
@@ -351,9 +349,7 @@ class TestThresholdAlarmEvaluator:
         """單一條件觸發"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate(50.0)
         assert result["HIGH_TEMP"] is True
@@ -362,9 +358,7 @@ class TestThresholdAlarmEvaluator:
         """單一條件未觸發"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate(40.0)
         assert result["HIGH_TEMP"] is False
@@ -397,9 +391,7 @@ class TestThresholdAlarmEvaluator:
         """值為 None 返回空字典"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate(None)
         assert result == {}
@@ -408,9 +400,7 @@ class TestThresholdAlarmEvaluator:
         """字串可轉換"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate("50.5")
         assert result["HIGH_TEMP"] is True
@@ -419,9 +409,7 @@ class TestThresholdAlarmEvaluator:
         """字串無法轉換返回空字典"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate("not_a_number")
         assert result == {}
@@ -430,9 +418,7 @@ class TestThresholdAlarmEvaluator:
         """整數值"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="temperature",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         result = evaluator.evaluate(50)
         assert result["HIGH_TEMP"] is True
@@ -481,8 +467,6 @@ class TestAlarmEvaluatorProtocol:
         """ThresholdAlarmEvaluator 是 AlarmEvaluator"""
         evaluator = ThresholdAlarmEvaluator(
             _point_name="test",
-            conditions=[
-                ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)
-            ],
+            conditions=[ThresholdCondition(alarm=high_temp_alarm, operator=Operator.GT, value=45.0)],
         )
         assert isinstance(evaluator, AlarmEvaluator)

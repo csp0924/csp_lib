@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Any
+from typing import Any, Iterable
 
 from csp_lib.modbus import ByteOrder, ModbusDataType, RegisterOrder
+
 
 @dataclass
 class ModbusDecoder:
@@ -31,10 +32,10 @@ class ModbusDecoder:
     def apply(self, value: Iterable[Any]) -> Any:
         if not isinstance(value, (list, tuple)):
             raise TypeError(f"ModbusDecoder 需要暫存器列表，收到: {type(value).__name__}")
-        
+
         if len(value) != self.data_type.register_count:
             raise ValueError(f"ModbusDecoder 需要 {self.data_type.register_count} 個暫存器，收到: {len(value)}")
-        
+
         return self.data_type.decode(
             list(value),
             byte_order=self.byte_order,
@@ -54,6 +55,7 @@ class ModbusEncoder:
         byte_order: 位元組順序
         register_order: 暫存器順序
     """
+
     data_type: ModbusDataType
     byte_order: ByteOrder = ByteOrder.BIG_ENDIAN
     register_order: RegisterOrder = RegisterOrder.HIGH_FIRST
