@@ -2,7 +2,9 @@
 #
 # 管理器模組
 #
-# 提供各類管理器功能
+# 提供各類管理器功能：
+#   - alarm: 告警持久化管理
+#   - device: 設備讀取管理
 
 from .alarm import (
     AlarmPersistenceManager,
@@ -11,6 +13,10 @@ from .alarm import (
     AlarmStatus,
     AlarmType,
     MongoAlarmRepository,
+)
+from .device import (
+    DeviceGroup,
+    DeviceManager,
 )
 
 __all__ = [
@@ -21,4 +27,7 @@ __all__ = [
     "AlarmRecord",
     "AlarmStatus",
     "AlarmType",
+    # Device
+    "DeviceGroup",
+    "DeviceManager",
 ]
