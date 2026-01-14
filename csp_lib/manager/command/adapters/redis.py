@@ -2,17 +2,22 @@
 #
 # Redis Pub/Sub 指令適配器
 #
-# 監聽 Redis channel 接收寫入指令並轉發至 WriteCommandManager
+# 監聽 Redis channel 接收指令並轉發至 WriteCommandManager
+# 支援兩種指令類型：
+#   - WriteCommand: 點位寫入 {"device_id", "point_name", "value"}
+#   - ActionCommand: 動作執行 {"device_id", "action", "params"}
 
 from __future__ import annotations
 
 import asyncio
 import json
-from typing import TYPE_CHECKING
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 from csp_lib.core import get_logger
+from csp_lib.equipment.transport import WriteResult, WriteStatus
 
-from ..schema import CommandSource
+from ..schema import ActionCommand, CommandSource
 
 if TYPE_CHECKING:
     from redis.asyncio import Redis
@@ -22,12 +27,60 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+# ========== Result Schema ==========
+
+
+@dataclass(frozen=True)
+class CommandResult:
+    """
+    指令執行結果
+
+    用於發布到 result_channel 的標準化結果格式。
+
+    Attributes:
+        command_id: 指令 ID
+        device_id: 設備 ID
+        status: 執行狀態
+        action: 動作名稱（ActionCommand 時）
+        point_name: 點位名稱（WriteCommand 時）
+        value: 寫入值或動作參數
+        error_message: 錯誤訊息
+    """
+
+    command_id: str
+    device_id: str
+    status: str
+    action: str | None = None
+    point_name: str | None = None
+    value: Any = None
+    error_message: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        """轉為字典（用於 JSON 序列化）"""
+        return {
+            "command_id": self.command_id,
+            "device_id": self.device_id,
+            "status": self.status,
+            "action": self.action,
+            "point_name": self.point_name,
+            "value": self.value,
+            "error_message": self.error_message,
+        }
+
+
+# ========== Redis Adapter ==========
+
+
 class RedisCommandAdapter:
     """
     Redis Pub/Sub 指令適配器
 
     監聯指定 channel，解析 JSON 指令並轉發至 WriteCommandManager。
     執行完成後將結果發布到結果 channel。
+
+    支援兩種指令類型：
+        - 點位寫入 (WriteCommand): {"device_id", "point_name", "value", "verify"}
+        - 動作執行 (ActionCommand): {"device_id", "action", "params"}
 
     Attributes:
         _redis: Redis 客戶端
@@ -37,42 +90,18 @@ class RedisCommandAdapter:
 
     Example:
         ```python
-        from csp_lib.manager.command import WriteCommandManager, RedisCommandAdapter
-
         adapter = RedisCommandAdapter(
-            redis_client=redis_client._client,  # 底層 redis.asyncio.Redis
+            redis_client=redis_client._client,
             manager=command_manager,
-            command_channel="channel:commands:write",
-            result_channel="channel:commands:result",
         )
         await adapter.start()
 
-        # 外部可透過 Redis 發送指令：
+        # 點位寫入
         # PUBLISH channel:commands:write '{"device_id":"d1","point_name":"sp","value":100}'
-        ```
 
-    Message Format:
-        指令（發送至 command_channel）:
-        ```json
-        {
-            "device_id": "device_001",
-            "point_name": "setpoint",
-            "value": 25.5,
-            "verify": false,
-            "source_info": {"user_id": "admin", "client_ip": "192.168.1.1"}
-        }
-        ```
-
-        結果（發布至 result_channel）:
-        ```json
-        {
-            "command_id": "uuid",
-            "device_id": "device_001",
-            "point_name": "setpoint",
-            "status": "success",
-            "value": 25.5,
-            "error_message": ""
-        }
+        # 動作執行
+        # PUBLISH channel:commands:write '{"device_id":"Generator","action":"start"}'
+        # PUBLISH channel:commands:write '{"device_id":"Generator","action":"set_power","params":{"p":80}}'
         ```
     """
 
@@ -162,26 +191,16 @@ class RedisCommandAdapter:
                 data = data.decode("utf-8")
 
             command_data = json.loads(data)
-            logger.debug(f"收到寫入指令: {command_data}")
+            logger.debug(f"收到指令: {command_data}")
 
-            # 執行指令
-            result = await self._manager.execute_from_dict(
-                command_data,
-                source=CommandSource.REDIS_PUBSUB,
-            )
+            # 使用 ActionCommand.is_action_command 判斷指令類型
+            if ActionCommand.is_action_command(command_data):
+                result = await self._execute_action(command_data)
+            else:
+                result = await self._execute_write(command_data)
 
             # 發布結果
-            result_message = json.dumps(
-                {
-                    "command_id": command_data.get("command_id", ""),
-                    "device_id": command_data.get("device_id", ""),
-                    "point_name": result.point_name,
-                    "status": result.status.value,
-                    "value": result.value,
-                    "error_message": result.error_message,
-                }
-            )
-            await self._redis.publish(self._result_channel, result_message)
+            await self._publish_result(result)
 
         except json.JSONDecodeError as e:
             logger.error(f"指令 JSON 解析失敗: {e}")
@@ -190,7 +209,85 @@ class RedisCommandAdapter:
         except Exception as e:
             logger.error(f"指令處理失敗: {e}")
 
+    async def _execute_action(self, data: dict[str, Any]) -> CommandResult:
+        """
+        執行動作指令
+
+        Args:
+            data: 包含 device_id, action, value(可選) 的字典
+
+        Returns:
+            CommandResult
+        """
+        try:
+            command = ActionCommand.from_dict(data, source=CommandSource.REDIS_PUBSUB)
+        except KeyError as e:
+            return CommandResult(
+                command_id=data.get("command_id", ""),
+                device_id=data.get("device_id", ""),
+                status=WriteStatus.VALIDATION_FAILED.value,
+                action=data.get("action"),
+                error_message=f"Missing required field: {e}",
+            )
+
+        device = self._manager.get_device(command.device_id)
+        if device is None:
+            return CommandResult(
+                command_id=command.command_id,
+                device_id=command.device_id,
+                status=WriteStatus.WRITE_FAILED.value,
+                action=command.action,
+                error_message=f"Device '{command.device_id}' not registered",
+            )
+
+        logger.info(f"執行 action: {command.device_id}.{command.action}, value={command.value}")
+        result = await device.execute_action(command.action, **command.params)
+
+        return CommandResult(
+            command_id=command.command_id,
+            device_id=command.device_id,
+            status=result.status.value,
+            action=command.action,
+            value=command.value,
+            error_message=result.error_message,
+        )
+
+    async def _execute_write(self, data: dict[str, Any]) -> CommandResult:
+        """
+        執行寫入指令
+
+        Args:
+            data: 包含 device_id, point_name, value 的字典
+
+        Returns:
+            CommandResult
+        """
+        result = await self._manager.execute_from_dict(
+            data,
+            source=CommandSource.REDIS_PUBSUB,
+        )
+
+        return CommandResult(
+            command_id=data.get("command_id", ""),
+            device_id=data.get("device_id", ""),
+            status=result.status.value,
+            point_name=result.point_name,
+            value=result.value,
+            error_message=result.error_message,
+        )
+
+    async def _publish_result(self, result: CommandResult) -> None:
+        """
+        發布執行結果
+
+        Args:
+            result: 指令執行結果
+        """
+        message = json.dumps(result.to_dict())
+        await self._redis.publish(self._result_channel, message)
+
 
 __all__ = [
     "RedisCommandAdapter",
+    "CommandResult",
 ]
