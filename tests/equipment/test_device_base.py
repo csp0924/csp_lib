@@ -535,7 +535,7 @@ class TestAsyncModbusDeviceState:
         """設備恢復後 is_responsive 應恢復"""
         call_count = 0
 
-        async def flaky_read(address, count):
+        async def flaky_read(address, count, unit_id=1):
             nonlocal call_count
             call_count += 1
             if call_count <= 3:
@@ -620,7 +620,7 @@ class TestAsyncModbusDevicePerformance:
         # 模擬不同值以觸發 value_change
         call_count = 0
 
-        def varying_read(address, count):
+        def varying_read(address, count, unit_id=1):
             nonlocal call_count
             call_count += 1
             return [call_count % 100]

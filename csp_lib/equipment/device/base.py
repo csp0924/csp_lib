@@ -84,9 +84,14 @@ class AsyncModbusDevice:
         # 通訊用元件
         self._reader = GroupReader(
             client=client,
+            unit_id=config.unit_id,
             address_offset=config.address_offset,
         )
-        self._writer = ValidatedWriter(client=client, address_offset=config.address_offset)
+        self._writer = ValidatedWriter(
+            client=client,
+            unit_id=config.unit_id,
+            address_offset=config.address_offset,
+        )
 
         # 寫入點位查詢表
         self._write_points = {write_point.name: write_point for write_point in write_points}

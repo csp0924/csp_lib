@@ -49,13 +49,18 @@ class GroupReader:
     """
 
     def __init__(
-        self, client: AsyncModbusClientBase, address_offset: int = 0, max_concurrent_reads: int = 1
+        self,
+        client: AsyncModbusClientBase,
+        unit_id: int = 1,
+        address_offset: int = 0,
+        max_concurrent_reads: int = 1,
     ):
         """
         初始化群組讀取器
 
         Args:
             client: Modbus 客戶端
+            unit_id: 設備位址 (Slave ID)
             address_offset: 位址偏移（PLC 1-based 定址時設為 1）
             max_concurrent_reads: 最大並行讀取數（預設 1 = 串列讀取）
         """
@@ -63,6 +68,7 @@ class GroupReader:
             raise ValueError(f"max_concurrent_reads 必須 >= 1，收到: {max_concurrent_reads}")
 
         self._client = client
+        self._unit_id = unit_id
         self._address_offset = address_offset
         self._max_concurrent_reads = max_concurrent_reads
         self._semaphore = asyncio.Semaphore(max_concurrent_reads)
@@ -131,13 +137,13 @@ class GroupReader:
         function_code = group.function_code
 
         if function_code == FunctionCode.READ_COILS:
-            return list(await self._client.read_coils(address, count))
+            return list(await self._client.read_coils(address, count, self._unit_id))
         elif function_code == FunctionCode.READ_DISCRETE_INPUTS:
-            return list(await self._client.read_discrete_inputs(address, count))
+            return list(await self._client.read_discrete_inputs(address, count, self._unit_id))
         elif function_code == FunctionCode.READ_HOLDING_REGISTERS:
-            return list(await self._client.read_holding_registers(address, count))
+            return list(await self._client.read_holding_registers(address, count, self._unit_id))
         elif function_code == FunctionCode.READ_INPUT_REGISTERS:
-            return list(await self._client.read_input_registers(address, count))
+            return list(await self._client.read_input_registers(address, count, self._unit_id))
         else:
             raise ValueError(f"不支援的 Function Code: {function_code}")
 
