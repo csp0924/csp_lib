@@ -11,6 +11,7 @@ import time
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 from csp_lib.equipment.alarm import AlarmEvaluator, AlarmEventType, AlarmState, AlarmStateManager
+from csp_lib.equipment.processing import AggregatorPipeline
 from csp_lib.equipment.transport import (
     GroupReader,
     PointGrouper,
@@ -70,6 +71,7 @@ class AsyncModbusDevice:
         rotating_points: Sequence[Sequence[ReadPoint]] = (),
         write_points: Sequence[WritePoint] = (),
         alarm_evaluators: Sequence[AlarmEvaluator] = (),
+        aggregator_pipeline: AggregatorPipeline | None = None,
     ):
         self._config = config
         self._client = client
@@ -101,6 +103,9 @@ class AsyncModbusDevice:
         self._alarm_evaluators = list(alarm_evaluators)
         for evaluator in self._alarm_evaluators:
             self._alarm_manager.register_alarms(evaluator.get_alarms())
+
+        # 設備層級聚合處理
+        self._aggregator_pipeline = aggregator_pipeline
 
         # 事件
         self._emitter = DeviceEventEmitter()
@@ -204,14 +209,13 @@ class AsyncModbusDevice:
         """
         啟動定期讀取循環
 
-        Raises:
-            ConnectionError: 設備未連線
+        即使未連線也可啟動，read_loop 會自動嘗試連線。
         """
-        if not self._client_connected:
-            raise ConnectionError("設備未連線（Client 尚未連線）")
-
         if self._read_task is not None and not self._read_task.done():
             return
+
+        # 確保 emitter 已啟動
+        await self._emitter.start()
 
         self._stop_event.clear()
         self._read_task = asyncio.create_task(self._read_loop())
@@ -368,14 +372,33 @@ class AsyncModbusDevice:
         groups = self._scheduler.get_next_groups()
         if not groups:
             return {}
-        return await self._reader.read_many(groups)
+        raw_values = await self._reader.read_many(groups)
+        if self._aggregator_pipeline:
+            return self._aggregator_pipeline.process(raw_values)
+        return raw_values
 
     async def _read_loop(self) -> None:
-        """讀取循環"""
+        """讀取循環（含自動重連）"""
         interval = self._config.read_interval
+        reconnect_interval = self._config.reconnect_interval
 
         while not self._stop_event.is_set():
             start_time = time.monotonic()
+
+            # 未連線時嘗試重連
+            if not self._client_connected:
+                try:
+                    await self._client.connect()
+                    self._client_connected = True
+                    self._device_responsive = True
+                    self._consecutive_failures = 0
+                    await self._emitter.emit_await(
+                        EVENT_CONNECTED, ConnectedPayload(device_id=self._config.device_id)
+                    )
+                except Exception:
+                    # 重連失敗，等待後重試
+                    await asyncio.sleep(reconnect_interval)
+                    continue
 
             try:
                 await self.read_once()

@@ -182,12 +182,6 @@ class TestAsyncModbusDeviceLifecycle:
         assert device.is_responsive is False
 
     @pytest.mark.asyncio
-    async def test_start_requires_connection(self, device: AsyncModbusDevice):
-        """start() 需要先連線"""
-        with pytest.raises(ConnectionError, match="設備未連線"):
-            await device.start()
-
-    @pytest.mark.asyncio
     async def test_start_creates_read_task(self, device: AsyncModbusDevice):
         """start() 應建立讀取 task"""
         await device.connect()

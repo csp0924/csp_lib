@@ -115,14 +115,21 @@ class DeviceManager:
 
         self._running = True
 
-        # 啟動獨立設備
+        # 啟動獨立設備（單一設備連線失敗不影響其他設備）
         for device in self._standalone:
-            await device.connect()
+            try:
+                await device.connect()
+            except Exception as e:
+                logger.warning(f"設備 {device.device_id} 連線失敗，將在背景重試: {e}")
+            # 無論連線成功與否都啟動 read_loop（會在背景自動重連）
             await device.start()
 
         # 啟動群組設備
         for group in self._groups:
-            await group.connect()
+            try:
+                await group.connect()
+            except Exception as e:
+                logger.warning(f"群組連線失敗: {e}")
             group.start()
 
         logger.info(
