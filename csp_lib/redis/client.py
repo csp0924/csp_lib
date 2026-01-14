@@ -7,13 +7,87 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+import ssl
+from dataclasses import dataclass
+from typing import Any, Literal
 
 from redis.asyncio import Redis
 
 from csp_lib.core import get_logger
 
 logger = get_logger(__name__)
+
+
+# ================ TLS 配置 ================
+
+
+@dataclass(frozen=True, slots=True)
+class TLSConfig:
+    """
+    TLS 連線配置
+
+    用於配置 Redis 的 TLS/SSL 連線參數。
+
+    Attributes:
+        ca_certs: CA 憑證檔案路徑（必填）
+        certfile: 客戶端憑證檔案路徑（雙向 TLS 用，選填）
+        keyfile: 客戶端私鑰檔案路徑（雙向 TLS 用，選填）
+        cert_reqs: 憑證驗證模式（預設 "required"）
+            - "required": 必須驗證伺服器憑證
+            - "optional": 可選驗證
+            - "none": 不驗證
+
+    Example:
+        ```python
+        # 單向 TLS（僅驗證伺服器）
+        tls = TLSConfig(ca_certs="/path/to/ca.crt")
+
+        # 雙向 TLS（mTLS）
+        tls = TLSConfig(
+            ca_certs="/path/to/ca.crt",
+            certfile="/path/to/client.crt",
+            keyfile="/path/to/client.key",
+        )
+        ```
+    """
+
+    ca_certs: str
+    certfile: str | None = None
+    keyfile: str | None = None
+    cert_reqs: Literal["required", "optional", "none"] = "required"
+
+    def __post_init__(self) -> None:
+        """驗證配置一致性"""
+        # certfile 和 keyfile 必須同時提供或同時不提供
+        if (self.certfile is None) != (self.keyfile is None):
+            raise ValueError("certfile 和 keyfile 必須同時提供（雙向 TLS）或同時不提供（單向 TLS）")
+
+    def to_ssl_context(self) -> ssl.SSLContext:
+        """
+        建立 SSLContext
+
+        Returns:
+            配置好的 ssl.SSLContext 實例
+        """
+        # 映射 cert_reqs 到 ssl 常數
+        cert_reqs_map = {
+            "required": ssl.CERT_REQUIRED,
+            "optional": ssl.CERT_OPTIONAL,
+            "none": ssl.CERT_NONE,
+        }
+
+        context = ssl.create_default_context(cafile=self.ca_certs)
+        context.check_hostname = self.cert_reqs == "required"
+        context.verify_mode = cert_reqs_map[self.cert_reqs]
+
+        # 載入客戶端憑證（雙向 TLS）
+        if self.certfile and self.keyfile:
+            context.load_cert_chain(certfile=self.certfile, keyfile=self.keyfile)
+
+        return context
+
+
+# ================ Redis Client ================
 
 
 class RedisClient:
@@ -23,12 +97,32 @@ class RedisClient:
     提供連線管理與常用操作的封裝，簡化 Redis 互動。
 
     Attributes:
-        _url: Redis 連線 URL
+        _host: Redis 主機
+        _port: Redis 連接埠
+        _password: 密碼
+        _tls_config: TLS 配置
+        _socket_timeout: Socket 讀寫超時（秒）
+        _socket_connect_timeout: Socket 連線超時（秒）
         _client: redis.asyncio.Redis 實例
 
     Example:
         ```python
-        client = RedisClient("redis://localhost:6379")
+        # 無 TLS
+        client = RedisClient(host="localhost", port=6379)
+        await client.connect()
+
+        # 有 TLS
+        tls = TLSConfig(
+            ca_certs="/path/to/ca.crt",
+            certfile="/path/to/client.crt",
+            keyfile="/path/to/client.key",
+        )
+        client = RedisClient(
+            host="redis.example.com",
+            port=6380,
+            password="secret",
+            tls_config=tls,
+        )
         await client.connect()
 
         # Hash 操作
@@ -42,14 +136,32 @@ class RedisClient:
         ```
     """
 
-    def __init__(self, url: str = "redis://localhost:6379") -> None:
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 6379,
+        password: str | None = None,
+        tls_config: TLSConfig | None = None,
+        socket_timeout: float | None = None,
+        socket_connect_timeout: float | None = None,
+    ) -> None:
         """
         初始化 Redis 客戶端
 
         Args:
-            url: Redis 連線 URL（支援 redis:// 或 rediss://）
+            host: Redis 主機位址
+            port: Redis 連接埠
+            password: 密碼（選填）
+            tls_config: TLS 配置（選填，啟用 TLS 時必須提供）
+            socket_timeout: Socket 讀寫超時秒數（選填）
+            socket_connect_timeout: Socket 連線超時秒數（選填）
         """
-        self._url = url
+        self._host = host
+        self._port = port
+        self._password = password
+        self._tls_config = tls_config
+        self._socket_timeout = socket_timeout
+        self._socket_connect_timeout = socket_connect_timeout
         self._client: Redis | None = None
 
     @property
@@ -67,10 +179,30 @@ class RedisClient:
         if self._client is not None:
             return
 
-        self._client = Redis.from_url(self._url, decode_responses=True)
+        # 建立連線參數
+        kwargs: dict[str, Any] = {
+            "host": self._host,
+            "port": self._port,
+            "decode_responses": True,
+        }
+
+        if self._password:
+            kwargs["password"] = self._password
+
+        if self._socket_timeout is not None:
+            kwargs["socket_timeout"] = self._socket_timeout
+
+        if self._socket_connect_timeout is not None:
+            kwargs["socket_connect_timeout"] = self._socket_connect_timeout
+
+        # TLS 配置
+        if self._tls_config:
+            kwargs["ssl"] = self._tls_config.to_ssl_context()
+
+        self._client = Redis(**kwargs)
         # 測試連線
         await self._client.ping()
-        logger.info(f"Redis 已連線: {self._url}")
+        logger.info(f"Redis 已連線: {self._host}:{self._port} (TLS: {self._tls_config is not None})")
 
     async def disconnect(self) -> None:
         """關閉 Redis 連線"""
@@ -292,4 +424,5 @@ class RedisClient:
 
 __all__ = [
     "RedisClient",
+    "TLSConfig",
 ]
