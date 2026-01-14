@@ -180,7 +180,7 @@ class DeviceGroup:
 
             elapsed = time.monotonic() - start
             sleep_time = max(0, self.interval - elapsed)
-            
+
             if sleep_time > 0:
                 try:
                     await asyncio.wait_for(

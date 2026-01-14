@@ -10,12 +10,12 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from csp_lib.manager.device import DeviceGroup, DeviceManager
+
 
 class MockClient:
     """Mock Modbus Client"""

@@ -9,7 +9,8 @@
 #   - 觀察者模式：訂閱 AsyncModbusDevice 的連線/告警事件
 #   - 事件驅動：斷線/告警觸發 → 寫入 DB，恢復/解除 → 更新 resolved_at
 from datetime import datetime
-from typing import Callable, Sequence
+from typing import Callable
+
 from csp_lib.core import get_logger
 from csp_lib.equipment.alarm import AlarmLevel
 from csp_lib.equipment.device import AsyncModbusDevice
@@ -22,6 +23,7 @@ from csp_lib.equipment.device.events import (
     DeviceAlarmPayload,
     DisconnectPayload,
 )
+
 from .repository import AlarmRepository
 from .schema import AlarmRecord, AlarmType
 
@@ -150,7 +152,7 @@ class AlarmPersistenceManager:
             occurred_at=payload.timestamp,
         )
         await self._create_alarm(record)
-    
+
     async def _on_alarm_cleared(self, payload: DeviceAlarmPayload) -> None:
         """
         處理設備告警解除事件

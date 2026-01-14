@@ -130,7 +130,7 @@ class MongoCommandRepository:
         error_message: str | None = None,
     ) -> bool:
         """更新指令狀態"""
-        from datetime import datetime, timezone
+        from datetime import timezone
 
         update: dict[str, Any] = {
             "status": status.value,

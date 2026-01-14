@@ -12,8 +12,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Callable
 
 from csp_lib.core import get_logger
 from csp_lib.equipment.device.events import (
