@@ -61,7 +61,15 @@ class AsyncModbusDevice:
         - 事件驅動通知
         - 動態點位排程
         - 設備寫入管理
+        - 高階 Action 指令支援
+
+    Class Attributes:
+        ACTIONS: 動作名稱對應方法名稱的映射，子類別可覆寫。
+            例如: {"start": "set_generator_on", "stop": "set_generator_off"}
     """
+
+    # 子類別可覆寫，定義支援的 action -> method 映射
+    ACTIONS: dict[str, str] = {}
 
     def __init__(
         self,
@@ -345,6 +353,61 @@ class AsyncModbusDevice:
             )
 
         return result
+
+    async def execute_action(self, action: str, **params: Any) -> WriteResult:
+        """
+        執行高階動作
+
+        根據 ACTIONS 映射呼叫對應的方法。
+
+        Args:
+            action: 動作名稱（如 "start", "stop"）
+            **params: 傳遞給方法的參數
+
+        Returns:
+            WriteResult：成功時 status=SUCCESS，失敗時包含錯誤訊息
+
+        Raises:
+            不拋出異常，所有錯誤透過 WriteResult 回傳
+        """
+        method_name = self.ACTIONS.get(action)
+        if method_name is None:
+            return WriteResult(
+                status=WriteStatus.VALIDATION_FAILED,
+                point_name=action,
+                value=None,
+                error_message=f"Action '{action}' not supported. Available: {list(self.ACTIONS.keys())}",
+            )
+
+        method = getattr(self, method_name, None)
+        if method is None or not callable(method):
+            return WriteResult(
+                status=WriteStatus.VALIDATION_FAILED,
+                point_name=action,
+                value=None,
+                error_message=f"Method '{method_name}' not found for action '{action}'",
+            )
+
+        try:
+            # 傳遞參數給 action 方法
+            await method(**params)
+            return WriteResult(
+                status=WriteStatus.SUCCESS,
+                point_name=action,
+                value=params if params else None,
+            )
+        except Exception as e:
+            return WriteResult(
+                status=WriteStatus.WRITE_FAILED,
+                point_name=action,
+                value=params if params else None,
+                error_message=str(e),
+            )
+
+    @property
+    def available_actions(self) -> list[str]:
+        """取得支援的動作列表"""
+        return list(self.ACTIONS.keys())
 
     # =============== Events ================
 
