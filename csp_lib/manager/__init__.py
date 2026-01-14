@@ -8,6 +8,7 @@
 #   - data: 資料上傳管理
 #   - device: 設備讀取管理
 #   - state: 狀態同步管理
+#   - unified: 統一設備管理器
 
 from .alarm import (
     AlarmPersistenceManager,
@@ -33,6 +34,7 @@ from .device import (
     DeviceManager,
 )
 from .state import StateSyncManager
+from .unified import UnifiedConfig, UnifiedDeviceManager
 
 __all__ = [
     # Alarm
@@ -58,4 +60,8 @@ __all__ = [
     "DeviceManager",
     # State
     "StateSyncManager",
+    # Unified
+    "UnifiedConfig",
+    "UnifiedDeviceManager",
 ]
+
