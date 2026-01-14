@@ -95,7 +95,7 @@ def alarm_evaluators() -> list[ThresholdAlarmEvaluator]:
     """告警評估器"""
     return [
         ThresholdAlarmEvaluator(
-            _point_name="power",
+            point_name="power",
             conditions=[
                 ThresholdCondition(
                     alarm=AlarmDefinition(code="HIGH_POWER", name="功率過高", level=AlarmLevel.WARNING),
@@ -333,7 +333,7 @@ class TestAsyncModbusDeviceAlarm:
         # 建立帶有 ALARM 級別的設備
         config = DeviceConfig(device_id="test", read_interval=0.1, disconnect_threshold=3)
         alarm_evaluator = ThresholdAlarmEvaluator(
-            _point_name="power",
+            point_name="power",
             conditions=[
                 ThresholdCondition(
                     alarm=AlarmDefinition(code="CRITICAL", name="嚴重", level=AlarmLevel.ALARM),
