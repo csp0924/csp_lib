@@ -3,7 +3,7 @@
 # 測試 StrategyExecutor 執行器
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock
 
 import pytest
@@ -135,9 +135,9 @@ class TestStrategyExecutor:
         strategy = MockStrategy()
         executor.set_strategy(strategy)
 
-        before = datetime.now()
+        before = datetime.now(timezone.utc)
         await executor.execute_once()
-        after = datetime.now()
+        after = datetime.now(timezone.utc)
 
         assert before <= strategy.last_context.current_time <= after
 
