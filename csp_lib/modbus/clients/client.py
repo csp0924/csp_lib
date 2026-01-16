@@ -571,7 +571,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def read_coils(self, address: int, count: int, unit_id: int = 1) -> list[bool]:
         """讀取線圈狀態 (FC 0x01)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.read_coils(
                 address=address,
@@ -584,7 +584,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def read_discrete_inputs(self, address: int, count: int, unit_id: int = 1) -> list[bool]:
         """讀取離散輸入 (FC 0x02)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.read_discrete_inputs(
                 address=address,
@@ -597,7 +597,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def read_holding_registers(self, address: int, count: int, unit_id: int = 1) -> list[int]:
         """讀取保持暫存器 (FC 0x03)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.read_holding_registers(
                 address=address,
@@ -610,7 +610,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def read_input_registers(self, address: int, count: int, unit_id: int = 1) -> list[int]:
         """讀取輸入暫存器 (FC 0x04)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.read_input_registers(
                 address=address,
@@ -625,7 +625,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def write_single_coil(self, address: int, value: bool, unit_id: int = 1) -> None:
         """寫入單一線圈 (FC 0x05)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.write_coil(
                 address=address,
@@ -637,7 +637,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def write_single_register(self, address: int, value: int, unit_id: int = 1) -> None:
         """寫入單一暫存器 (FC 0x06)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.write_register(
                 address=address,
@@ -649,7 +649,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def write_multiple_coils(self, address: int, values: list[bool], unit_id: int = 1) -> None:
         """寫入多個線圈 (FC 0x0F)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.write_coils(
                 address=address,
@@ -661,7 +661,7 @@ class SharedPymodbusTcpClient(AsyncModbusClientBase):
 
     async def write_multiple_registers(self, address: int, values: list[int], unit_id: int = 1) -> None:
         """寫入多個暫存器 (FC 0x10)"""
-        client, lock = await self._get_shared_resources()
+        client, lock = await self._get_resources()
         async with lock:
             response = await client.write_registers(
                 address=address,
