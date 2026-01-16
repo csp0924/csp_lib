@@ -78,24 +78,25 @@ class StrategyExecutor:
         """是否正在執行"""
         return self._is_running
 
-    def set_strategy(self, strategy: Optional[Strategy]) -> None:
+    async def set_strategy(self, strategy: Optional[Strategy]) -> None:
         """
         設定/切換策略
 
         會自動呼叫舊策略的 on_deactivate() 和新策略的 on_activate()
+        注意：會等待 lifecycle 方法完成
 
         Args:
             strategy: 新策略，None 表示停止策略
         """
         if self._strategy is not None:
             logger.info(f"停用策略: {self._strategy}")
-            self._strategy.on_deactivate()
+            await self._strategy.on_deactivate()
 
         self._strategy = strategy
 
         if self._strategy is not None:
             logger.info(f"啟用策略: {self._strategy}")
-            self._strategy.on_activate()
+            await self._strategy.on_activate()
 
     def trigger(self) -> None:
         """
