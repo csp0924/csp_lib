@@ -89,14 +89,10 @@ class DeviceManager:
         註冊設備群組
 
         群組內設備將由 Manager 順序呼叫 read_once() 進行讀取。
-        群組內設備必須共用同一 Client。
 
         Args:
-            devices: 設備列表（必須共用同一 Client）
+            devices: 設備列表
             interval: 完整讀取一輪的間隔時間（秒）
-
-        Raises:
-            ValueError: 群組內設備未共用同一 Client
         """
         group = DeviceGroup(devices=list(devices), interval=interval)
         self._groups.append(group)
@@ -109,6 +105,7 @@ class DeviceManager:
         啟動所有設備
 
         獨立設備將各自啟動 read_loop，群組設備將啟動順序讀取循環。
+        連線失敗不會阻止啟動，會在背景自動重試。
         """
         if self._running:
             return
@@ -124,12 +121,14 @@ class DeviceManager:
             # 無論連線成功與否都啟動 read_loop（會在背景自動重連）
             await device.start()
 
-        # 啟動群組設備
+        # 啟動群組設備：先連線各設備，再啟動順序讀取
         for group in self._groups:
-            try:
-                await group.connect()
-            except Exception as e:
-                logger.warning(f"群組連線失敗: {e}")
+            for device in group.devices:
+                try:
+                    await device.connect()
+                except Exception as e:
+                    logger.warning(f"設備 {device.device_id} 連線失敗，將在背景重試: {e}")
+                await device._emitter.start()
             group.start()
 
         logger.info(
@@ -154,10 +153,15 @@ class DeviceManager:
             await device.stop()
             await device.disconnect()
 
-        # 停止群組設備
+        # 停止群組設備：先停止順序讀取，再斷線各設備
         for group in self._groups:
             await group.stop()
-            await group.disconnect()
+            for device in group.devices:
+                await device._emitter.stop()
+                try:
+                    await device.disconnect()
+                except Exception as e:
+                    logger.debug(f"設備 {device.device_id} 斷線失敗（已忽略）: {e}")
 
         logger.info("DeviceManager 已停止")
 
