@@ -11,7 +11,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -26,7 +26,7 @@ from csp_lib.equipment.device.events import (
     DisconnectPayload,
 )
 from csp_lib.manager.alarm.persistence import AlarmPersistenceManager
-from csp_lib.manager.alarm.schema import AlarmRecord, AlarmStatus, AlarmType
+from csp_lib.manager.alarm.schema import AlarmRecord, AlarmType
 
 
 class MockDevice:
