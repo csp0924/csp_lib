@@ -1,13 +1,19 @@
 # =============== Manager Device - Group ===============
 #
-# 設備群組
+# 設備群組（純順序讀取器）
 #
-# 用於管理共用 Client 的設備順序讀取：
+# 用於管理需要順序讀取的設備：
 #   - DeviceGroup: 設備群組類別
 #
 # 使用場景：
 #   - RTU 通訊：多設備共用 RS485 線路
 #   - Shared TCP：多設備共用 TCP Client（如 Gateway）
+#   - 任何需要順序讀取的場景
+#
+# 設計理念：
+#   - DeviceGroup 只負責「順序讀取」
+#   - 連線/斷線/重連由各 Device 自己管理
+#   - 不限制設備是否共用 Client
 
 from __future__ import annotations
 
@@ -27,13 +33,13 @@ logger = get_logger(__name__)
 @dataclass
 class DeviceGroup:
     """
-    設備群組（共用 Client，順序讀取）
+    設備群組（純順序讀取器）
 
-    用於管理共用同一 Client 的多個設備，確保順序讀取避免通訊衝突。
-    適用於 RTU、Shared TCP 等場景。
+    依序讀取群組內設備，確保不會同時讀取造成衝突。
+    連線/斷線/重連由各 Device 自己管理，DeviceGroup 不介入。
 
     Attributes:
-        devices: 群組內設備列表（必須共用同一 Client）
+        devices: 群組內設備列表
         interval: 完整讀取一輪的間隔時間（秒）
         step_interval: 設備間的讀取間隔時間（秒）
 
@@ -42,14 +48,9 @@ class DeviceGroup:
             devices=[device_1, device_2, device_3],
             interval=1.0,
         )
-        await group.connect()
         group.start()
         # ... 運行中 ...
         await group.stop()
-        await group.disconnect()
-
-    Raises:
-        ValueError: 群組內設備未共用同一 Client
     """
 
     devices: list[AsyncModbusDevice]
@@ -59,76 +60,14 @@ class DeviceGroup:
     _task: asyncio.Task[None] | None = field(default=None, init=False, repr=False)
     _stop_event: asyncio.Event = field(default_factory=asyncio.Event, init=False, repr=False)
 
-    def __post_init__(self) -> None:
-        """初始化後驗證"""
-        self._validate_same_client()
-
-    def _validate_same_client(self) -> None:
-        """
-        驗證群組內設備是否共用同一 Client
-
-        Raises:
-            ValueError: 發現不同 Client
-        """
-        if len(self.devices) < 2:
-            return
-
-        first_client = self.devices[0]._client
-        for device in self.devices[1:]:
-            if device._client is not first_client:
-                raise ValueError(
-                    f"群組內設備必須共用同一 Client: "
-                    f"{self.devices[0].device_id} 與 {device.device_id} 使用不同 Client"
-                )
-
     # ================ 生命週期 ================
-
-    async def connect(self) -> None:
-        """
-        連線群組
-
-        僅連接一次 Client（因為共用），並為每個設備啟動事件處理器。
-        """
-        if not self.devices:
-            return
-
-        # 連接共用 Client
-        await self.devices[0]._client.connect()
-
-        # 啟動各設備的事件處理器
-        for device in self.devices:
-            await device._emitter.start()
-            device._client_connected = True
-            device._device_responsive = True
-            device._consecutive_failures = 0
-
-        logger.info(f"設備群組已連線，包含 {len(self.devices)} 個設備")
-
-    async def disconnect(self) -> None:
-        """
-        斷線群組
-
-        停止各設備的事件處理器，並斷開共用 Client。
-        """
-        if not self.devices:
-            return
-
-        # 停止各設備的事件處理器
-        for device in self.devices:
-            device._client_connected = False
-            device._device_responsive = False
-            await device._emitter.stop()
-
-        # 斷開共用 Client
-        await self.devices[0]._client.disconnect()
-
-        logger.info(f"設備群組已斷線，包含 {len(self.devices)} 個設備")
 
     def start(self) -> None:
         """
         啟動順序讀取循環
 
         建立背景任務，依序讀取群組內所有設備。
+        各設備的連線由 Device 自己管理。
         """
         if self._task is not None and not self._task.done():
             return
@@ -138,7 +77,7 @@ class DeviceGroup:
             self._sequential_loop(),
             name=f"device_group_loop_{id(self)}",
         )
-        logger.info(f"設備群組讀取循環已啟動，間隔 {self.interval}s")
+        logger.info(f"設備群組讀取循環已啟動，間隔 {self.interval}s，包含 {len(self.devices)} 個設備")
 
     async def stop(self) -> None:
         """
@@ -164,7 +103,7 @@ class DeviceGroup:
         """
         順序讀取循環
 
-        依序呼叫每個設備的 read_once()，確保不會同時使用共用 Client。
+        依序呼叫每個設備的 read_once()，確保不會同時讀取。
         單一設備的讀取錯誤不會影響其他設備。
         """
         while not self._stop_event.is_set():
