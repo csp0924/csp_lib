@@ -3,17 +3,22 @@
 # 異步 Redis 客戶端封裝
 #
 # 基於 redis.asyncio 提供連線管理與基本操作。
+# 支援 Standalone / Sentinel 模式。
 
 from __future__ import annotations
 
 import json
 import ssl
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from redis.asyncio import Redis
+from redis.asyncio.sentinel import Sentinel
 
 from csp_lib.core import get_logger
+
+if TYPE_CHECKING:
+    from csp_lib.redis.config import RedisConfig
 
 logger = get_logger(__name__)
 
@@ -95,44 +100,45 @@ class RedisClient:
     異步 Redis 客戶端封裝
 
     提供連線管理與常用操作的封裝，簡化 Redis 互動。
+    支援 Standalone 與 Sentinel 兩種模式。
 
     Attributes:
-        _host: Redis 主機
+        _config: Redis 連線配置（使用 from_config 時）
+        _host: Redis 主機（直接建構時）
         _port: Redis 連接埠
         _password: 密碼
         _tls_config: TLS 配置
         _socket_timeout: Socket 讀寫超時（秒）
         _socket_connect_timeout: Socket 連線超時（秒）
         _client: redis.asyncio.Redis 實例
+        _sentinel: Sentinel 實例（Sentinel 模式時）
 
     Example:
         ```python
-        # 無 TLS
+        # 方式一：直接建構（Standalone）
         client = RedisClient(host="localhost", port=6379)
         await client.connect()
 
-        # 有 TLS
-        tls = TLSConfig(
-            ca_certs="/path/to/ca.crt",
-            certfile="/path/to/client.crt",
-            keyfile="/path/to/client.key",
-        )
-        client = RedisClient(
-            host="redis.example.com",
-            port=6380,
+        # 方式二：使用 Config（推薦）
+        from csp_lib.redis import RedisClient, RedisConfig, TLSConfig
+
+        config = RedisConfig(
+            host="localhost",
+            port=6379,
             password="secret",
-            tls_config=tls,
+            tls_config=TLSConfig(ca_certs="/path/to/ca.crt"),
         )
+        client = RedisClient.from_config(config)
         await client.connect()
 
-        # Hash 操作
-        await client.hset("device:001:state", {"temperature": "25.5"})
-        state = await client.hgetall("device:001:state")
-
-        # Pub/Sub
-        await client.publish("channel:device:001:data", '{"temp": 25.5}')
-
-        await client.disconnect()
+        # 方式三：Sentinel 模式
+        config = RedisConfig(
+            sentinels=(("sentinel1", 26379), ("sentinel2", 26379)),
+            sentinel_master="mymaster",
+            password="redis_password",
+        )
+        client = RedisClient.from_config(config)
+        await client.connect()
         ```
     """
 
@@ -146,7 +152,9 @@ class RedisClient:
         socket_connect_timeout: float | None = None,
     ) -> None:
         """
-        初始化 Redis 客戶端
+        初始化 Redis 客戶端（Standalone 模式）
+
+        若需使用 Sentinel 模式，請改用 RedisClient.from_config()。
 
         Args:
             host: Redis 主機位址
@@ -156,22 +164,69 @@ class RedisClient:
             socket_timeout: Socket 讀寫超時秒數（選填）
             socket_connect_timeout: Socket 連線超時秒數（選填）
         """
+        self._config: RedisConfig | None = None
         self._host = host
         self._port = port
         self._password = password
         self._tls_config = tls_config
         self._socket_timeout = socket_timeout
         self._socket_connect_timeout = socket_connect_timeout
+        self._retry_on_timeout = False
         self._client: Redis | None = None
+        self._sentinel: Sentinel | None = None
+
+    @classmethod
+    def from_config(cls, config: "RedisConfig") -> "RedisClient":
+        """
+        從 RedisConfig 建立客戶端
+
+        根據配置自動選擇 Standalone 或 Sentinel 模式。
+
+        Args:
+            config: Redis 連線配置
+
+        Returns:
+            配置好的 RedisClient 實例
+
+        Example:
+            ```python
+            config = RedisConfig(
+                sentinels=(("sentinel1", 26379),),
+                sentinel_master="mymaster",
+                password="secret",
+            )
+            client = RedisClient.from_config(config)
+            await client.connect()
+            ```
+        """
+        instance = cls.__new__(cls)
+        instance._config = config
+        instance._host = config.host
+        instance._port = config.port
+        instance._password = config.password
+        instance._tls_config = config.tls_config
+        instance._socket_timeout = config.socket_timeout
+        instance._socket_connect_timeout = config.socket_connect_timeout
+        instance._retry_on_timeout = config.retry_on_timeout
+        instance._client = None
+        instance._sentinel = None
+        return instance
 
     @property
     def is_connected(self) -> bool:
         """是否已連線"""
         return self._client is not None
 
+    @property
+    def is_sentinel_mode(self) -> bool:
+        """是否為 Sentinel 模式"""
+        return self._config is not None and self._config.is_sentinel_mode
+
     async def connect(self) -> None:
         """
         建立 Redis 連線
+
+        根據配置自動選擇 Standalone 或 Sentinel 模式連線。
 
         Raises:
             ConnectionError: 連線失敗
@@ -179,7 +234,13 @@ class RedisClient:
         if self._client is not None:
             return
 
-        # 建立連線參數
+        if self.is_sentinel_mode:
+            await self._connect_sentinel()
+        else:
+            await self._connect_standalone()
+
+    async def _connect_standalone(self) -> None:
+        """Standalone 模式連線"""
         kwargs: dict[str, Any] = {
             "host": self._host,
             "port": self._port,
@@ -195,14 +256,80 @@ class RedisClient:
         if self._socket_connect_timeout is not None:
             kwargs["socket_connect_timeout"] = self._socket_connect_timeout
 
+        if self._retry_on_timeout:
+            kwargs["retry_on_timeout"] = True
+
         # TLS 配置
         if self._tls_config:
             kwargs["ssl"] = self._tls_config.to_ssl_context()
 
         self._client = Redis(**kwargs)
-        # 測試連線
         await self._client.ping()
-        logger.info(f"Redis 已連線: {self._host}:{self._port} (TLS: {self._tls_config is not None})")
+        logger.info(
+            f"Redis 已連線 (Standalone): {self._host}:{self._port} "
+            f"(TLS: {self._tls_config is not None})"
+        )
+
+    async def _connect_sentinel(self) -> None:
+        """Sentinel 模式連線"""
+        if self._config is None:
+            raise RuntimeError("Sentinel 模式需使用 from_config() 建立")
+
+        # Sentinel 連線參數
+        sentinel_kwargs: dict[str, Any] = {
+            "decode_responses": True,
+        }
+
+        if self._config.sentinel_password:
+            sentinel_kwargs["password"] = self._config.sentinel_password
+
+        if self._socket_timeout is not None:
+            sentinel_kwargs["socket_timeout"] = self._socket_timeout
+
+        if self._socket_connect_timeout is not None:
+            sentinel_kwargs["socket_connect_timeout"] = self._socket_connect_timeout
+
+        # TLS for Sentinel
+        if self._tls_config:
+            sentinel_kwargs["ssl"] = self._tls_config.to_ssl_context()
+
+        # 建立 Sentinel 連線
+        self._sentinel = Sentinel(
+            list(self._config.sentinels),  # type: ignore
+            sentinel_kwargs=sentinel_kwargs,
+        )
+
+        # 取得 Master 連線參數
+        master_kwargs: dict[str, Any] = {
+            "decode_responses": True,
+        }
+
+        if self._password:
+            master_kwargs["password"] = self._password
+
+        if self._socket_timeout is not None:
+            master_kwargs["socket_timeout"] = self._socket_timeout
+
+        if self._socket_connect_timeout is not None:
+            master_kwargs["socket_connect_timeout"] = self._socket_connect_timeout
+
+        if self._retry_on_timeout:
+            master_kwargs["retry_on_timeout"] = True
+
+        if self._tls_config:
+            master_kwargs["ssl"] = self._tls_config.to_ssl_context()
+
+        # 取得 Master
+        self._client = self._sentinel.master_for(
+            self._config.sentinel_master,  # type: ignore
+            **master_kwargs,
+        )
+
+        await self._client.ping()
+        logger.info(
+            f"Redis 已連線 (Sentinel): master={self._config.sentinel_master} "
+            f"(TLS: {self._tls_config is not None})"
+        )
 
     async def disconnect(self) -> None:
         """關閉 Redis 連線"""
