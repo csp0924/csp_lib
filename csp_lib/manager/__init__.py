@@ -18,6 +18,7 @@ from .alarm import (
     AlarmType,
     MongoAlarmRepository,
 )
+from .base import DeviceEventSubscriber
 from .command import (
     CommandRecord,
     CommandRepository,
@@ -37,6 +38,8 @@ from .state import StateSyncManager
 from .unified import UnifiedConfig, UnifiedDeviceManager
 
 __all__ = [
+    # Base
+    "DeviceEventSubscriber",
     # Alarm
     "AlarmPersistenceManager",
     "AlarmRepository",

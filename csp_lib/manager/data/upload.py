@@ -20,6 +20,7 @@ from csp_lib.equipment.device.events import (
     DisconnectPayload,
     ReadCompletePayload,
 )
+from csp_lib.manager.base import DeviceEventSubscriber
 
 if TYPE_CHECKING:
     from csp_lib.equipment.device import AsyncModbusDevice
@@ -58,7 +59,7 @@ def nullify_nested(value: Any) -> Any:
         return None
 
 
-class DataUploadManager:
+class DataUploadManager(DeviceEventSubscriber):
     """
     資料上傳管理器
 
@@ -98,14 +99,14 @@ class DataUploadManager:
         Args:
             uploader: MongoDB 批次上傳器實例
         """
+        super().__init__()
         self._uploader = uploader
         self._device_collection: dict[str, str] = {}  # device_id -> collection_name
         self._last_values: dict[str, dict[str, Any]] = {}  # device_id -> last values
-        self._unsubscribes: dict[str, list[Callable[[], None]]] = {}
 
     # ================ 訂閱管理 ================
 
-    def subscribe(self, device: AsyncModbusDevice, collection_name: str) -> None:
+    def subscribe(self, device: AsyncModbusDevice, collection_name: str) -> None:  # type: ignore[override]
         """
         訂閱設備事件
 
@@ -123,28 +124,17 @@ class DataUploadManager:
         self._device_collection[device_id] = collection_name
         self._uploader.register_collection(collection_name)
 
-        self._unsubscribes[device_id] = [
+        self._unsubscribes[device_id] = self._register_events(device)
+        logger.info(f"資料上傳管理器已訂閱設備: {device_id} -> {collection_name}")
+
+    def _register_events(self, device: AsyncModbusDevice) -> list[Callable[[], None]]:
+        """註冊設備的 read_complete 與 disconnected 事件"""
+        return [
             device.on(EVENT_READ_COMPLETE, self._on_read_complete),
             device.on(EVENT_DISCONNECTED, self._on_disconnected),
         ]
-        logger.info(f"資料上傳管理器已訂閱設備: {device_id} -> {collection_name}")
 
-    def unsubscribe(self, device: AsyncModbusDevice) -> None:
-        """
-        取消訂閱設備事件
-
-        移除對指定設備的事件訂閱。若尚未訂閱則不做任何操作。
-
-        Args:
-            device: 要取消訂閱的 Modbus 設備
-        """
-        device_id = device.device_id
-        if device_id not in self._unsubscribes:
-            return
-
-        for unsubscribe in self._unsubscribes.pop(device_id):
-            unsubscribe()
-
+    def _on_unsubscribe(self, device_id: str) -> None:
         self._device_collection.pop(device_id, None)
         self._last_values.pop(device_id, None)
         logger.info(f"資料上傳管理器已取消訂閱設備: {device_id}")

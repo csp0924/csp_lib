@@ -9,10 +9,12 @@ import pytest
 from csp_lib.equipment.core.transform import (
     BitExtractTransform,
     BoolTransform,
+    ByteExtractTransform,
     ClampTransform,
     EnumMapTransform,
     InverseTransform,
     MultiFieldExtractTransform,
+    PowerFactorTransform,
     RoundTransform,
     ScaleTransform,
     TransformStep,
@@ -382,6 +384,132 @@ class TestMultiFieldExtractTransform:
         assert result["high32"] == 0x12345678
 
 
+class TestByteExtractTransform:
+    """ByteExtractTransform 測試"""
+
+    def test_extract_first_2_bytes(self):
+        """從 [0x1234, 0x5678] 提取前 2 bytes"""
+        transform = ByteExtractTransform(byte_offset=0, byte_length=2)
+        result = transform.apply([0x1234, 0x5678])
+        assert result == bytes([0x12, 0x34])
+
+    def test_extract_with_offset(self):
+        """從 [0x1234, 0x5678] 提取 byte_offset=2 開始的 2 bytes"""
+        transform = ByteExtractTransform(byte_offset=2, byte_length=2)
+        result = transform.apply([0x1234, 0x5678])
+        assert result == bytes([0x56, 0x78])
+
+    def test_extract_single_byte(self):
+        """提取單一 byte"""
+        transform = ByteExtractTransform(byte_offset=1, byte_length=1)
+        result = transform.apply([0xABCD])
+        assert result == bytes([0xCD])
+
+    def test_extract_from_tuple(self):
+        """支援 tuple 輸入"""
+        transform = ByteExtractTransform(byte_offset=0, byte_length=2)
+        result = transform.apply((0x1234,))
+        assert result == bytes([0x12, 0x34])
+
+    def test_extract_all_bytes(self):
+        """提取所有 bytes"""
+        transform = ByteExtractTransform(byte_offset=0, byte_length=4)
+        result = transform.apply([0x1234, 0x5678])
+        assert result == bytes([0x12, 0x34, 0x56, 0x78])
+
+    def test_invalid_byte_offset_raises(self):
+        with pytest.raises(ValueError, match="byte_offset 必須 >= 0"):
+            ByteExtractTransform(byte_offset=-1)
+
+    def test_invalid_byte_length_raises(self):
+        with pytest.raises(ValueError, match="byte_length 必須 >= 1"):
+            ByteExtractTransform(byte_offset=0, byte_length=0)
+
+    def test_invalid_type_raises(self):
+        transform = ByteExtractTransform(byte_offset=0, byte_length=1)
+        with pytest.raises(TypeError, match="需要列表"):
+            transform.apply(0x1234)
+        with pytest.raises(TypeError, match="需要列表"):
+            transform.apply("1234")
+
+    def test_out_of_range_returns_empty(self):
+        """offset 超出範圍時回傳空 bytes"""
+        transform = ByteExtractTransform(byte_offset=10, byte_length=2)
+        result = transform.apply([0x1234])
+        assert result == b""
+
+
+class TestPowerFactorTransform:
+    """PowerFactorTransform 測試"""
+
+    def test_q1_lagging(self):
+        """Q1: 0 < x < 1 → PF = x, lagging"""
+        transform = PowerFactorTransform()
+        assert transform.apply(0.85) == 0.85
+
+    def test_q2_leading(self):
+        """Q2: -2 < x < -1 → PF = -2 - x, leading"""
+        transform = PowerFactorTransform()
+        result = transform.apply(-1.15)
+        assert abs(result - (-0.85)) < 1e-10
+
+    def test_q3_lagging(self):
+        """Q3: -1 < x < 0 → PF = x, lagging"""
+        transform = PowerFactorTransform()
+        assert transform.apply(-0.85) == -0.85
+
+    def test_q4_leading(self):
+        """Q4: 1 < x < 2 → PF = 2 - x, leading"""
+        transform = PowerFactorTransform()
+        result = transform.apply(1.15)
+        assert abs(result - 0.85) < 1e-10
+
+    def test_unity_positive(self):
+        """Unity: |x| = 1 → PF = x"""
+        transform = PowerFactorTransform()
+        assert transform.apply(1.0) == 1.0
+
+    def test_unity_negative(self):
+        """Unity: |x| = 1 → PF = x"""
+        transform = PowerFactorTransform()
+        assert transform.apply(-1.0) == -1.0
+
+    def test_include_status_q1(self):
+        """include_status=True 回傳 dict"""
+        transform = PowerFactorTransform(include_status=True)
+        result = transform.apply(0.85)
+        assert result == {"pf": 0.85, "status": "lagging"}
+
+    def test_include_status_q2(self):
+        transform = PowerFactorTransform(include_status=True)
+        result = transform.apply(-1.15)
+        assert result["status"] == "leading"
+        assert abs(result["pf"] - (-0.85)) < 1e-10
+
+    def test_include_status_q4(self):
+        transform = PowerFactorTransform(include_status=True)
+        result = transform.apply(1.15)
+        assert result["status"] == "leading"
+        assert abs(result["pf"] - 0.85) < 1e-10
+
+    def test_include_status_unity(self):
+        transform = PowerFactorTransform(include_status=True)
+        result = transform.apply(1.0)
+        assert result == {"pf": 1.0, "status": "unity"}
+
+    def test_accepts_int(self):
+        """接受整數輸入"""
+        transform = PowerFactorTransform()
+        assert transform.apply(0) == 0.0
+
+    def test_invalid_type_raises(self):
+        transform = PowerFactorTransform()
+        with pytest.raises(TypeError, match="需要數值"):
+            transform.apply("0.85")
+        with pytest.raises(TypeError, match="需要數值"):
+            transform.apply(None)
+
+
 class TestTransformStepProtocol:
     """TransformStep Protocol 測試"""
 
@@ -394,6 +522,8 @@ class TestTransformStepProtocol:
             BoolTransform(),
             InverseTransform(),
             BitExtractTransform(bit_offset=0),
+            ByteExtractTransform(byte_offset=0),
+            PowerFactorTransform(),
             MultiFieldExtractTransform(fields=(("x", 0, 1),)),
         ]
         for t in transforms:

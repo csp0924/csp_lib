@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, Optional
 
 from loguru import logger as _root_logger
 
+from .lifecycle import AsyncLifecycleMixin
+
 if TYPE_CHECKING:
     from loguru import Logger
 
@@ -189,4 +191,5 @@ __all__ = [
     "set_level",
     "configure_logging",
     "logger",
+    "AsyncLifecycleMixin",
 ]

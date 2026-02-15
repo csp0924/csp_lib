@@ -23,6 +23,7 @@ from csp_lib.equipment.device.events import (
     DeviceAlarmPayload,
     DisconnectPayload,
 )
+from csp_lib.manager.base import DeviceEventSubscriber
 
 from .repository import AlarmRepository
 from .schema import AlarmRecord, AlarmType
@@ -30,7 +31,7 @@ from .schema import AlarmRecord, AlarmType
 logger = get_logger(__name__)
 
 
-class AlarmPersistenceManager:
+class AlarmPersistenceManager(DeviceEventSubscriber):
     """
     告警持久化管理器
 
@@ -57,46 +58,22 @@ class AlarmPersistenceManager:
         Args:
             repository: 告警資料存取層（遵循 AlarmRepository Protocol）
         """
+        super().__init__()
         self._repository = repository
-        self._unsubscribes: dict[str, list[Callable[[], None]]] = {}
 
     # ================ 訂閱管理 ================
 
-    def subscribe(self, device: AsyncModbusDevice) -> None:
-        """
-        訂閱設備事件
-
-        訂閱設備的連線/斷線與告警觸發/解除事件。
-        若已訂閱則不重複訂閱。
-
-        Args:
-            device: 要訂閱的 Modbus 設備
-        """
-        device_id = device.device_id
-        if device_id in self._unsubscribes:
-            return
-        self._unsubscribes[device_id] = [
+    def _register_events(self, device: AsyncModbusDevice) -> list[Callable[[], None]]:
+        """註冊設備的連線/斷線與告警觸發/解除事件"""
+        logger.info(f"告警持久化管理器已訂閱設備: {device.device_id}")
+        return [
             device.on(EVENT_DISCONNECTED, self._on_disconnected),
             device.on(EVENT_CONNECTED, self._on_connected),
             device.on(EVENT_ALARM_TRIGGERED, self._on_alarm_triggered),
             device.on(EVENT_ALARM_CLEARED, self._on_alarm_cleared),
         ]
-        logger.info(f"告警持久化管理器已訂閱設備: {device_id}")
 
-    def unsubscribe(self, device: AsyncModbusDevice) -> None:
-        """
-        取消訂閱設備事件
-
-        移除對指定設備的事件訂閱。若尚未訂閱則不做任何操作。
-
-        Args:
-            device: 要取消訂閱的 Modbus 設備
-        """
-        device_id = device.device_id
-        if device_id not in self._unsubscribes:
-            return
-        for unsubscribe in self._unsubscribes.pop(device_id):
-            unsubscribe()
+    def _on_unsubscribe(self, device_id: str) -> None:
         logger.info(f"告警持久化管理器已取消訂閱設備: {device_id}")
 
     # ================ 事件處理器 ================

@@ -14,7 +14,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from csp_lib.core import get_logger
+from csp_lib.core import AsyncLifecycleMixin, get_logger
 from csp_lib.equipment.transport import WriteStatus
 
 from ..schema import ActionCommand, CommandSource
@@ -71,7 +71,7 @@ class CommandResult:
 # ========== Redis Adapter ==========
 
 
-class RedisCommandAdapter:
+class RedisCommandAdapter(AsyncLifecycleMixin):
     """
     Redis Pub/Sub 指令適配器
 
@@ -136,7 +136,7 @@ class RedisCommandAdapter:
         """是否正在運行"""
         return self._running
 
-    async def start(self) -> None:
+    async def _on_start(self) -> None:
         """
         啟動監聽
 
@@ -149,7 +149,7 @@ class RedisCommandAdapter:
         self._task = asyncio.create_task(self._listen_loop())
         logger.info(f"Redis 指令適配器已啟動: {self._command_channel}")
 
-    async def stop(self) -> None:
+    async def _on_stop(self) -> None:
         """
         停止監聽
 

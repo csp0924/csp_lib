@@ -11,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Sequence
 
-from csp_lib.core import get_logger
+from csp_lib.core import AsyncLifecycleMixin, get_logger
 
 from .alarm import AlarmPersistenceManager, AlarmRepository
 from .command import CommandRepository, WriteCommandManager
@@ -63,7 +63,7 @@ class UnifiedConfig:
 # ================ 統一管理器 ================
 
 
-class UnifiedDeviceManager:
+class UnifiedDeviceManager(AsyncLifecycleMixin):
     """
     統一設備管理器
 
@@ -202,7 +202,7 @@ class UnifiedDeviceManager:
 
     # ================ 生命週期 ================
 
-    async def start(self) -> None:
+    async def _on_start(self) -> None:
         """
         啟動管理器
 
@@ -211,7 +211,7 @@ class UnifiedDeviceManager:
         await self._device_manager.start()
         logger.info("UnifiedDeviceManager 已啟動")
 
-    async def stop(self) -> None:
+    async def _on_stop(self) -> None:
         """
         停止管理器
 
@@ -219,15 +219,6 @@ class UnifiedDeviceManager:
         """
         await self._device_manager.stop()
         logger.info("UnifiedDeviceManager 已停止")
-
-    async def __aenter__(self) -> UnifiedDeviceManager:
-        """Context manager 進入"""
-        await self.start()
-        return self
-
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager 離開"""
-        await self.stop()
 
     # ================ 屬性 ================
 
