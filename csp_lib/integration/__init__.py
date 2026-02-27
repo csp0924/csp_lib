@@ -10,7 +10,7 @@
 #   - GridControlLoop: 完整控制迴圈編排
 
 from .command_router import CommandRouter
-from .context_builder import ContextBuilder
+from .context_builder import ContextBuilder, apply_builtin_aggregate
 from .data_feed import DeviceDataFeed
 from .distributed import (
     DeviceStateSubscriber,
@@ -45,6 +45,7 @@ __all__ = [
     "HeartbeatMode",
     "HeartbeatService",
     "ContextBuilder",
+    "apply_builtin_aggregate",
     "CommandRouter",
     "DeviceDataFeed",
     "GridControlLoop",

@@ -206,14 +206,18 @@ class SystemController(AsyncLifecycleMixin):
 
     async def _on_stop(self) -> None:
         """停止系統控制器"""
-        self._executor.stop()
-        if self._run_task is not None:
-            await self._run_task
-            self._run_task = None
-        if self._heartbeat is not None:
-            await self._heartbeat.stop()
-        if self._data_feed is not None:
-            self._data_feed.detach()
+        try:
+            self._executor.stop()
+            if self._run_task is not None:
+                await self._run_task
+                self._run_task = None
+        finally:
+            try:
+                if self._heartbeat is not None:
+                    await self._heartbeat.stop()
+            finally:
+                if self._data_feed is not None:
+                    self._data_feed.detach()
         logger.info("SystemController stopped.")
 
     # ---- 內部流程 ----

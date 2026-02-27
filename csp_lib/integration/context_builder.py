@@ -20,7 +20,7 @@ from .schema import AggregateFunc, ContextMapping
 logger = get_logger("csp_lib.integration.context_builder")
 
 
-def _apply_builtin_aggregate(func: AggregateFunc, values: list[Any]) -> Any:
+def apply_builtin_aggregate(func: AggregateFunc, values: list[Any]) -> Any:
     """
     套用內建聚合函式
 
@@ -167,7 +167,7 @@ class ContextBuilder:
                 logger.warning(f"Custom aggregate failed for mapping '{mapping.context_field}', using default.")
                 return None
 
-        return _apply_builtin_aggregate(mapping.aggregate, values)
+        return apply_builtin_aggregate(mapping.aggregate, values)
 
     @staticmethod
     def _set_context_field(ctx: StrategyContext, field: str, value: Any) -> None:

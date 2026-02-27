@@ -1,0 +1,117 @@
+// =============== Hierarchical Control gRPC Service ===============
+//
+// SCADA → Area → Site → Device 四層架構的 gRPC 服務定義
+//
+// Services:
+//   - ControlDispatchService: 上層向下層下發控制命令
+//   - StatusReportService: 下層向上層回報執行狀態
+//
+// 對應 Python Protocol:
+//   - SubExecutorAgent (integration.hierarchical.agent)
+//   - TransportAdapter (integration.hierarchical.transport)
+
+syntax = "proto3";
+
+package csp_lib.grpc;
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/empty.proto";
+
+// ==================== Messages ====================
+
+// 功率控制命令
+message Command {
+  double p_target = 1;  // 有功功率目標值 (kW)
+  double q_target = 2;  // 無功功率目標值 (kVar)
+}
+
+// 調度命令封包
+message DispatchCommandMessage {
+  string source_site_id = 1;              // 發送方站點 ID
+  string target_site_id = 2;              // 目標站點 ID
+  Command command = 3;                    // 功率命令
+  int32 priority = 4;                     // 優先序 (10=NORMAL, 50=MANUAL, 100=PROTECTION)
+  google.protobuf.Timestamp timestamp = 5;  // 命令時間戳
+  map<string, string> metadata = 6;       // 額外資訊
+}
+
+// 調度回應
+message DispatchResponse {
+  bool accepted = 1;                      // 是否接受
+  string message = 2;                     // 回應訊息（拒絕原因等）
+}
+
+// 覆蓋模式請求
+message OverrideRequest {
+  string site_id = 1;                     // 目標站點 ID
+  string mode_name = 2;                   // 模式名稱
+}
+
+// 子執行器狀態
+message ExecutorStatusMessage {
+  string strategy_name = 1;              // 當前策略名稱
+  Command last_command = 2;              // 最近命令
+  repeated string active_overrides = 3;  // 啟用的覆蓋模式
+  repeated string base_modes = 4;        // 基礎模式
+  bool is_running = 5;                   // 是否運行中
+  int32 device_count = 6;               // 設備總數
+  int32 healthy_device_count = 7;        // 健康設備數
+}
+
+// 狀態回報封包
+message StatusReportMessage {
+  string site_id = 1;                               // 回報站點 ID
+  ExecutorStatusMessage status = 2;                  // 執行器狀態
+  google.protobuf.Timestamp timestamp = 3;           // 回報時間
+  map<string, double> metrics = 4;                   // 額外指標 (SOC, voltage, etc.)
+}
+
+// 狀態訂閱請求
+message StatusSubscribeRequest {
+  string subscriber_id = 1;              // 訂閱方 ID
+  repeated string site_ids = 2;          // 要訂閱的站點列表 (空=全部)
+}
+
+// 站點查詢請求
+message SiteRequest {
+  string site_id = 1;
+}
+
+// 健康檢查
+message HealthCheckRequest {
+  string site_id = 1;
+}
+
+message HealthCheckResponse {
+  bool healthy = 1;
+  string message = 2;
+}
+
+// ==================== Services ====================
+
+// 控制調度服務 — SCADA/Area 層呼叫，Site 層實作
+service ControlDispatchService {
+  // 下發單一調度命令
+  rpc Dispatch(DispatchCommandMessage) returns (DispatchResponse);
+
+  // 推入覆蓋模式
+  rpc PushOverride(OverrideRequest) returns (DispatchResponse);
+
+  // 移除覆蓋模式
+  rpc PopOverride(OverrideRequest) returns (DispatchResponse);
+
+  // 查詢站點狀態
+  rpc GetStatus(SiteRequest) returns (ExecutorStatusMessage);
+
+  // 健康檢查
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// 狀態回報服務 — Site 層推送，SCADA/Area 層訂閱
+service StatusReportService {
+  // 單次回報狀態
+  rpc ReportStatus(StatusReportMessage) returns (google.protobuf.Empty);
+
+  // 串流訂閱狀態更新
+  rpc SubscribeStatus(StatusSubscribeRequest) returns (stream StatusReportMessage);
+}

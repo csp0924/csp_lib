@@ -24,7 +24,9 @@
       "Bash(done)",
       "Bash(for dir in /Users/csp0924/csplib/csp_lib/tests/*/)",
       "Bash(grep:*)",
-      "Bash(git -C /Users/csp0924/csplib log --oneline -5)"
+      "Bash(git -C /Users/csp0924/csplib log --oneline -5)",
+      "Bash(sed:*)",
+      "Bash(SKIP_CYTHON=1 uv run:*)"
     ]
   }
 }

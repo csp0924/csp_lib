@@ -75,41 +75,41 @@ class StrategyFactory:
         """
         config_dict = config_dict or {}
 
-        match strategy_type:
-            case StrategyType.PQ:
-                pq_config = PQModeConfig.from_dict(config_dict)
-                return PQModeStrategy(pq_config)
+        if strategy_type == StrategyType.PQ:
+            pq_config = PQModeConfig.from_dict(config_dict)
+            return PQModeStrategy(pq_config)
 
-            case StrategyType.PV_SMOOTH:
-                if self._pv_service is None:
-                    logger.warning("StrategyFactory: PV_SMOOTH 需要 PVDataService，但未提供")
-                    return None
-                pv_config = PVSmoothConfig.from_dict(config_dict)
-                return PVSmoothStrategy(pv_config, pv_service=self._pv_service)
+        elif strategy_type == StrategyType.PV_SMOOTH:
+            if self._pv_service is None:
+                logger.warning("StrategyFactory: PV_SMOOTH 需要 PVDataService，但未提供")
+                return None
+            pv_config = PVSmoothConfig.from_dict(config_dict)
+            return PVSmoothStrategy(pv_config, pv_service=self._pv_service)
 
-            case StrategyType.QV:
-                qv_config = QVConfig.from_dict(config_dict)
-                return QVStrategy(qv_config)
+        elif strategy_type == StrategyType.QV:
+            qv_config = QVConfig.from_dict(config_dict)
+            return QVStrategy(qv_config)
 
-            case StrategyType.FP:
-                fp_config = FPConfig.from_dict(config_dict)
-                return FPStrategy(fp_config)
+        elif strategy_type == StrategyType.FP:
+            fp_config = FPConfig.from_dict(config_dict)
+            return FPStrategy(fp_config)
 
-            case StrategyType.ISLAND:
-                if self._relay is None:
-                    logger.warning("StrategyFactory: ISLAND 需要 RelayProtocol，但未提供")
-                    return None
-                island_config = IslandModeConfig.from_dict(config_dict)
-                return IslandModeStrategy(self._relay, island_config)
+        elif strategy_type == StrategyType.ISLAND:
+            if self._relay is None:
+                logger.warning("StrategyFactory: ISLAND 需要 RelayProtocol，但未提供")
+                return None
+            island_config = IslandModeConfig.from_dict(config_dict)
+            return IslandModeStrategy(self._relay, island_config)
 
-            case StrategyType.BYPASS:
-                return BypassStrategy()
+        elif strategy_type == StrategyType.BYPASS:
+            return BypassStrategy()
 
-            case StrategyType.STOP:
-                return StopStrategy()
+        elif strategy_type == StrategyType.STOP:
+            return StopStrategy()
 
-        logger.warning(f"StrategyFactory: 未知的策略類型: {strategy_type}")
-        return None
+        else:
+            logger.warning(f"StrategyFactory: 未知的策略類型: {strategy_type}")
+            return None
 
 
 __all__ = [

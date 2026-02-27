@@ -135,14 +135,17 @@ class UnifiedDeviceManager(AsyncLifecycleMixin):
             StateSyncManager(config.redis_client) if config.redis_client else None
         )
 
-        # Statistics manager（需要 mongo_uploader + statistics_config）
-        from csp_lib.statistics import StatisticsManager
+        # Statistics manager（需要 mongo_uploader + statistics_config + csp_lib.statistics）
+        self._statistics_manager: StatisticsManager | None = None
+        if config.statistics_config and config.mongo_uploader:
+            try:
+                from csp_lib.statistics import StatisticsManager
 
-        self._statistics_manager: StatisticsManager | None = (
-            StatisticsManager(config.statistics_config, config.mongo_uploader, config.device_registry)
-            if config.statistics_config and config.mongo_uploader
-            else None
-        )
+                self._statistics_manager = StatisticsManager(
+                    config.statistics_config, config.mongo_uploader, config.device_registry
+                )
+            except ImportError:
+                logger.warning("Statistics module not available, skipping StatisticsManager initialization")
 
         logger.info(
             f"UnifiedDeviceManager 初始化: "

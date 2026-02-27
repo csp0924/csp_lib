@@ -3,7 +3,7 @@
 from unittest.mock import MagicMock, PropertyMock
 
 from csp_lib.controller.core import SystemBase
-from csp_lib.integration.context_builder import ContextBuilder, _apply_builtin_aggregate
+from csp_lib.integration.context_builder import ContextBuilder, apply_builtin_aggregate
 from csp_lib.integration.registry import DeviceRegistry
 from csp_lib.integration.schema import AggregateFunc, ContextMapping
 
@@ -18,22 +18,22 @@ def _make_device(device_id: str, values: dict | None = None, responsive: bool = 
 
 class TestApplyBuiltinAggregate:
     def test_average(self):
-        assert _apply_builtin_aggregate(AggregateFunc.AVERAGE, [10, 20, 30]) == 20.0
+        assert apply_builtin_aggregate(AggregateFunc.AVERAGE, [10, 20, 30]) == 20.0
 
     def test_sum(self):
-        assert _apply_builtin_aggregate(AggregateFunc.SUM, [10, 20, 30]) == 60
+        assert apply_builtin_aggregate(AggregateFunc.SUM, [10, 20, 30]) == 60
 
     def test_min(self):
-        assert _apply_builtin_aggregate(AggregateFunc.MIN, [10, 5, 30]) == 5
+        assert apply_builtin_aggregate(AggregateFunc.MIN, [10, 5, 30]) == 5
 
     def test_max(self):
-        assert _apply_builtin_aggregate(AggregateFunc.MAX, [10, 5, 30]) == 30
+        assert apply_builtin_aggregate(AggregateFunc.MAX, [10, 5, 30]) == 30
 
     def test_first(self):
-        assert _apply_builtin_aggregate(AggregateFunc.FIRST, [10, 20]) == 10
+        assert apply_builtin_aggregate(AggregateFunc.FIRST, [10, 20]) == 10
 
     def test_empty_returns_none(self):
-        assert _apply_builtin_aggregate(AggregateFunc.AVERAGE, []) is None
+        assert apply_builtin_aggregate(AggregateFunc.AVERAGE, []) is None
 
 
 class TestContextBuilderDeviceIdMode:

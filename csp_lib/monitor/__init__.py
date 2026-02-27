@@ -11,7 +11,7 @@
 #   - RedisMonitorPublisher: Redis 發布器
 #   - ClusterMonitorAggregator: 叢集監控聚合器
 
-from .alarm import SystemAlarmEvaluator
+from .alarm import SystemAlarmEvaluator, create_system_alarm_evaluators
 from .collector import (
     InterfaceMetrics,
     ModuleHealthCollector,
@@ -45,6 +45,7 @@ __all__ = [
     "NodeRegistration",
     "RedisMonitorPublisher",
     "SystemAlarmEvaluator",
+    "create_system_alarm_evaluators",
     "SystemMetrics",
     "SystemMetricsCollector",
     "SystemMonitor",

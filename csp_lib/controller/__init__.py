@@ -14,7 +14,7 @@ from .core import (
     StrategyContext,
     SystemBase,
 )
-from .executor import StrategyExecutor
+from .executor import ComputeOffloader, StrategyExecutor
 from .protocol import GridControllerBase, GridControllerProtocol
 from .services import PVDataService
 from .strategies import (
@@ -61,6 +61,7 @@ __all__ = [
     "ExecutionConfig",
     "Strategy",
     # Executor
+    "ComputeOffloader",
     "StrategyExecutor",
     # Services
     "PVDataService",

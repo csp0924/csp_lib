@@ -11,7 +11,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from csp_lib.controller.core import Command, StrategyContext, SystemBase
 from csp_lib.core import get_logger
-from csp_lib.integration.context_builder import _apply_builtin_aggregate
+from csp_lib.integration.context_builder import apply_builtin_aggregate
 from csp_lib.integration.schema import ContextMapping
 
 logger = get_logger("csp_lib.cluster.context")
@@ -132,7 +132,7 @@ class VirtualContextBuilder:
                 logger.warning(f"Custom aggregate failed for mapping '{mapping.context_field}', using default.")
                 return None
 
-        return _apply_builtin_aggregate(mapping.aggregate, values)
+        return apply_builtin_aggregate(mapping.aggregate, values)
 
 
 def _set_context_field(ctx: StrategyContext, field: str, value: Any) -> None:

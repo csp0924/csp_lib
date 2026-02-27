@@ -185,17 +185,16 @@ class MongoScheduleRepository:
         Returns:
             bool: 是否匹配
         """
-        match rule.schedule_type:
-            case ScheduleType.DAILY:
-                return True
-            case ScheduleType.WEEKLY:
-                return now_weekday in rule.days_of_week
-            case ScheduleType.ONCE:
-                if rule.start_date and now_date < rule.start_date:
-                    return False
-                if rule.end_date and now_date > rule.end_date:
-                    return False
-                return True
+        if rule.schedule_type == ScheduleType.DAILY:
+            return True
+        elif rule.schedule_type == ScheduleType.WEEKLY:
+            return now_weekday in rule.days_of_week
+        elif rule.schedule_type == ScheduleType.ONCE:
+            if rule.start_date and now_date < rule.start_date:
+                return False
+            if rule.end_date and now_date > rule.end_date:
+                return False
+            return True
         return False
 
 

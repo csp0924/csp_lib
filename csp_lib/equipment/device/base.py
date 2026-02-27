@@ -332,8 +332,10 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
             raise
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        await self.stop()
-        await self.disconnect()
+        try:
+            await self.stop()
+        finally:
+            await self.disconnect()
 
     # =============== Transport ===============
 

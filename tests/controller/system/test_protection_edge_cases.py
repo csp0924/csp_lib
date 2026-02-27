@@ -77,8 +77,8 @@ class TestProtectionGuardEdgeCases:
         assert result.protected_command == cmd
         assert not result.was_modified
 
-    def test_rule_exception_skipped(self):
-        """If a rule raises, it is skipped and logged"""
+    def test_rule_exception_triggers_fail_safe(self):
+        """If a rule raises, fail-safe applies (P=0, Q=0) instead of passing through"""
 
         class BrokenRule(ProtectionRule):
             @property
@@ -96,4 +96,6 @@ class TestProtectionGuardEdgeCases:
         cmd = Command(p_target=100)
         ctx = StrategyContext()
         result = guard.apply(cmd, ctx)
-        assert result.protected_command == cmd
+        assert result.protected_command.p_target == 0.0
+        assert result.protected_command.q_target == 0.0
+        assert "broken(fail-safe)" in result.triggered_rules

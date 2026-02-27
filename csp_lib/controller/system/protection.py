@@ -304,7 +304,9 @@ class ProtectionGuard:
                 if rule.is_triggered:
                     triggered.append(rule.name)
             except Exception:
-                logger.exception(f"Protection rule '{rule.name}' failed, skipping")
+                logger.exception(f"Protection rule '{rule.name}' failed, applying fail-safe (P=0, Q=0)")
+                current = Command(p_target=0.0, q_target=0.0)
+                triggered.append(f"{rule.name}(fail-safe)")
 
         result = ProtectionResult(
             original_command=original,

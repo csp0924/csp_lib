@@ -28,6 +28,7 @@ gui = [
     "fastapi>=0.115.0",
     "uvicorn[standard]>=0.30.0",
     "pyyaml>=6.0",
+    "python-multipart"
 ]
 all = [
     "csp0924_lib[mongo,redis,modbus,monitor,cluster,gui]",

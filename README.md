@@ -1367,6 +1367,51 @@ async with controller:
 
 ---
 
+## Hierarchical Control (`csp_lib.integration.hierarchical`)
+
+SCADA -> Area -> Site -> Device 四層階層控制介面。
+
+### Protocols
+
+```python
+from csp_lib.integration.hierarchical import (
+    SubExecutorAgent,     # Remote executor coordination protocol
+    TransportAdapter,     # Pluggable transport protocol (Redis/gRPC/HTTP)
+    DispatchCommand,      # Command dispatch dataclass
+    ExecutorStatus,       # Executor runtime status
+    StatusReport,         # Status report with site ID and metrics
+)
+```
+
+| Protocol | Layer | Description |
+|----------|-------|-------------|
+| `SubExecutorAgent` | L6 (Integration) | Remote sub-executor dispatch, override, health check |
+| `TransportAdapter` | L6 (Integration) | Abstract transport for command/state exchange |
+
+### gRPC Service Definitions
+
+Proto file at `csp_lib/grpc/control.proto`:
+
+| Service | Direction | Methods |
+|---------|-----------|---------|
+| `ControlDispatchService` | SCADA -> Site | `Dispatch`, `PushOverride`, `PopOverride`, `GetStatus`, `HealthCheck` |
+| `StatusReportService` | Site -> SCADA | `ReportStatus`, `SubscribeStatus` (streaming) |
+
+### Architecture
+
+```
+SCADA (Global Strategy)
+  |-- DispatchCommand --> Area Controller
+       |-- DispatchCommand --> Site Controller (CascadingStrategy: PQ+QV)
+            |-- Modbus TCP --> BMS / PCS / Meter
+            |-- StatusReport --> Area Controller
+       |-- StatusReport --> SCADA
+```
+
+See [docs/architecture/hierarchical-control.md](docs/architecture/hierarchical-control.md) for detailed architecture documentation.
+
+---
+
 ## Monitor 模組 (`csp_lib.monitor`)
 
 需安裝：`pip install csp0924_lib[monitor]`
@@ -1556,6 +1601,23 @@ server = SimulationServer(
 async with server:
     await asyncio.Event().wait()
 ```
+
+---
+
+## 範例
+
+`examples/` 目錄包含由淺入深的使用範例：
+
+| 檔案 | 說明 |
+|------|------|
+| `01_basic_device.py` | 基本設備讀寫 |
+| `02_device_template.py` | 設備模板定義 |
+| `03_control_strategies.py` | 控制策略使用 |
+| `04_grid_control_loop.py` | GridControlLoop 整合 |
+| `05_system_controller.py` | SystemController 進階控制 |
+| `06_custom_strategy.py` | 自訂策略開發 |
+| `11_cascading_strategy.py` | **CascadingStrategy 深入示範** — delta-based clamping、多層分配、容量限制、階層控制預覽 |
+| `demo_full_system.py` | **完整系統整合 Demo** — 涵蓋設備建立、Registry、控制迴圈、模式切換與保護機制的端到端範例 |
 
 ---
 

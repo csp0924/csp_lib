@@ -6,80 +6,125 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **csp_lib** (package name: `csp0924_lib`) is a Python 3.13+ library for industrial equipment communication and energy management. It provides async Modbus device abstraction, control strategies, alarm management, and integrations with MongoDB and Redis. Supports optional Cython compilation for production builds.
 
-## Common Commands
+## Commands
 
-### Development Setup
-```bash
-uv sync --all-groups --all-extras    # Install all deps including dev
-```
+| Task | Command |
+|------|---------|
+| Install all deps | `uv sync --all-groups --all-extras` |
+| Run all tests | `uv run pytest tests/ -v` |
+| Run single test file | `uv run pytest tests/equipment/test_core_point.py` |
+| Run tests by pattern | `uv run pytest -k "test_scale_transform"` |
+| Lint | `uv run ruff check .` |
+| Lint + auto-fix | `uv run ruff check --fix .` |
+| Format | `uv run ruff format .` |
+| Type check | `uv run mypy csp_lib/` |
+| Build Cython wheel | `python build_wheel.py` |
+| Clean build | `python build_wheel.py clean` |
+| Editable install (no Cython) | `SKIP_CYTHON=1 pip install -e .` |
 
-### Testing
-```bash
-uv run pytest tests/ -v                           # Run all tests
-uv run pytest tests/equipment/test_core_point.py   # Run a single test file
-uv run pytest -k "test_scale_transform"            # Run tests matching pattern
-```
 Async tests use `@pytest.mark.asyncio` decorator (no global asyncio mode configured).
-
-### Linting & Formatting
-```bash
-uv run ruff check .          # Lint
-uv run ruff check --fix .    # Lint with auto-fix
-uv run ruff format .         # Format
-uv run mypy csp_lib/         # Type check
-```
 Pre-commit hooks run `ruff --fix` and `ruff-format` automatically.
-
-### Building
-```bash
-python build_wheel.py              # Build Cython-compiled wheel
-python build_wheel.py clean        # Clean build artifacts
-SKIP_CYTHON=1 pip install -e .     # Editable install without Cython
-```
 
 ## Architecture
 
-The library follows a layered architecture, bottom-up:
+8-layer bottom-up architecture. **Dependency direction: lower layers MUST NOT import upper layers.**
 
-1. **Core Layer** (`csp_lib.core`) — Logging (loguru-based `get_logger`), `AsyncLifecycleMixin` (async context manager base), error hierarchy (`DeviceError`, `CommunicationError`, `AlarmError`, `ConfigurationError`), health checking (`HealthCheckable`/`HealthReport`).
+```
+Layer 8  Additional    cluster, monitor, notification, modbus_server, gui
+Layer 7  Storage       mongo, redis
+Layer 6  Integration   DeviceRegistry, ContextBuilder, CommandRouter, SystemController
+Layer 5  Manager       DeviceManager, AlarmPersistenceManager, DataUploadManager, UnifiedDeviceManager
+Layer 4  Controller    Strategies (PQ/QV/FP/Island/...), StrategyExecutor, ModeManager, ProtectionGuard
+Layer 3  Equipment     AsyncModbusDevice, Points, Transforms, Alarms, ReadScheduler
+Layer 2  Modbus        Data types, async clients (TCP/RTU/Shared), codec
+Layer 1  Core          get_logger, AsyncLifecycleMixin, errors, HealthCheckable
+```
 
-2. **Modbus Layer** (`csp_lib.modbus`) — Low-level register I/O: data types (Int16, Float32, ModbusString...), async clients (TCP/RTU/Shared), codec with endianness support.
+### Module Boundary & Dependency Direction
 
-3. **Equipment Layer** (`csp_lib.equipment`) — Device abstraction built on Modbus:
-   - `AsyncModbusDevice`: Central class managing periodic reads, connection state, events, and alarms.
-   - Points (`ReadPoint`/`WritePoint`), transforms (`ScaleTransform`, `BitExtractTransform`), and `ProcessingPipeline` for data transformation chains.
-   - Alarm system with `AlarmDefinition`, evaluators (BitMask/Threshold/Table), and `AlarmStateManager` with hysteresis.
-   - Transport: `PointGrouper` merges adjacent registers, `GroupReader` for batch reads, `ReadScheduler` for fixed + rotating modes.
+| Module | Path | Depends On | Depended By |
+|--------|------|------------|-------------|
+| Core | `csp_lib/core/` | (none) | all |
+| Modbus | `csp_lib/modbus/` | Core | Equipment |
+| Equipment | `csp_lib/equipment/` | Core, Modbus | Controller, Manager, Integration |
+| Controller | `csp_lib/controller/` | Core, Equipment | Manager, Integration |
+| Manager | `csp_lib/manager/` | Core, Equipment, Controller, Storage | Integration |
+| Integration | `csp_lib/integration/` | Core, Equipment, Controller, Manager | Additional |
+| Storage | `csp_lib/mongo/`, `csp_lib/redis/` | Core | Manager, Additional |
+| Additional | `csp_lib/cluster/`, `csp_lib/monitor/`, `csp_lib/notification/`, `csp_lib/modbus_server/`, `csp_lib/gui/`, `csp_lib/statistics/` | varies | (none) |
 
-4. **Controller Layer** (`csp_lib.controller`) — Control strategies (PVSmooth, PQ, QV, FP, Island, Bypass, Stop, Schedule) using the Command pattern, orchestrated by `StrategyExecutor`. System management via `ModeManager` (priority-based mode switching), `ProtectionGuard` (SOC/reverse-power/alarm rules), `CascadingStrategy` (multi-strategy power allocation).
+### Key Reference Files
 
-5. **Manager Layer** (`csp_lib.manager`) — System integration: `DeviceManager` (lifecycle), `AlarmPersistenceManager` (MongoDB + Redis pub/sub), `DataUploadManager` (batch uploads), `WriteCommandManager` (command routing), `StateSyncManager` (Redis sync). `UnifiedDeviceManager` combines them all.
-
-6. **Integration Layer** (`csp_lib.integration`) — Bridges Equipment and Controller: `DeviceRegistry` (trait-based device lookup), `ContextBuilder` (device values → `StrategyContext`), `CommandRouter` (commands → device writes), `GridControlLoop` (simple orchestrator), `SystemController` (full orchestrator with ModeManager + ProtectionGuard).
-
-7. **Storage** (`csp_lib.mongo`, `csp_lib.redis`) — Async MongoDB (motor) and Redis clients with batch upload and pub/sub.
-
-8. **Additional Modules**: `csp_lib.cluster` (etcd leader election HA), `csp_lib.monitor` (system metrics + alerts), `csp_lib.notification` (multi-channel alarm dispatch), `csp_lib.modbus_server` (Modbus TCP simulation server), `csp_lib.gui` (FastAPI dashboard).
+| Pattern | File | Purpose |
+|---------|------|---------|
+| AsyncLifecycleMixin | `csp_lib/core/lifecycle.py` | Async context manager base for all lifecycle components |
+| Frozen dataclass config | `csp_lib/integration/schema.py` | `@dataclass(frozen=True, slots=True)` config standard |
+| Protocol definition | `csp_lib/controller/protocol.py` | `@runtime_checkable Protocol` pattern |
+| Error hierarchy | `csp_lib/core/errors.py` | Exception class hierarchy |
+| Device mock | `tests/integration/test_system_controller.py` | `_make_device()` mock pattern |
+| FastAPI test client | `tests/gui/conftest.py` | Test client fixture pattern |
 
 ### Key Patterns
-- **Async-first**: All device I/O and managers use asyncio. Lifecycle managed via `AsyncLifecycleMixin` (`async with`).
-- **Event-driven**: `AsyncModbusDevice` emits events (`value_change`, `alarm_triggered`, etc.) via on/emit.
+
+- **Async-first**: All device I/O and managers use asyncio. Lifecycle via `AsyncLifecycleMixin` (`async with`).
+- **Event-driven**: `AsyncModbusDevice` emits events (`value_change`, `alarm_triggered`) via on/emit.
 - **Frozen dataclass configs**: Immutable configuration objects throughout.
 - **Optional dependencies**: `csp_lib[modbus]`, `csp_lib[mongo]`, `csp_lib[redis]`, `csp_lib[monitor]`, `csp_lib[cluster]`, `csp_lib[gui]`, `csp_lib[all]`.
 - **Logging**: Centralized loguru with per-module level control via `get_logger(module_name)`.
-- **Per-file lint ignores**: `setup.py` allows E402; `csp_lib/gui/api/*.py` allows B008 (FastAPI `Depends()` pattern).
 
 ## Code Style
 
-- Line length: 120
-- Double quotes
-- Ruff rules: E, W, F, I (isort), B (flake8-bugbear)
-- E501 ignored (formatter handles line length); B027 ignored (intentional empty abstract methods)
-- Target: Python 3.13
+| Rule | Value |
+|------|-------|
+| Line length | 120 |
+| Quotes | Double |
+| Ruff rules | E, W, F, I (isort), B (flake8-bugbear) |
+| Ignored | E501 (formatter handles), B027 (empty abstract methods) |
+| Target | Python 3.13 |
+| Per-file | `setup.py`: E402; `csp_lib/gui/api/*.py`: B008 (FastAPI `Depends()`) |
 
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/build-wheels.yml`):
-- **PR**: lint + test only (Ubuntu + Windows)
+GitHub Actions (`.github/workflows/build-wheels.yml`):
+- **PR**: lint + test (Ubuntu + Windows)
 - **Tag (v\*)**: lint + test + build wheels (Windows/manylinux) + publish to PyPI
-- Set `SKIP_CYTHON=1` to skip Cython compilation in test environments
+- `SKIP_CYTHON=1` to skip Cython in test environments
+
+## Agent Teams
+
+Multi-agent orchestration system for automated collaborative development workflows.
+
+### Agent Roles
+
+| Agent | File | Role | File Scope (R/W) |
+|-------|------|------|-------------------|
+| Feature Driver | [`.claude/agents/feature-driver.md`](.claude/agents/feature-driver.md) | 需求拆解、影響分析、版本規劃 | `CHANGELOG.md`, `project.md` |
+| Architect | [`.claude/agents/architect.md`](.claude/agents/architect.md) | API 合約設計、層級邊界守衛 | Read-only all |
+| Implementer | [`.claude/agents/implementer.md`](.claude/agents/implementer.md) | 遵循架構設計撰寫生產程式碼 | `csp_lib/**/*.py`, `examples/*.py` |
+| Security Reviewer | [`.claude/agents/security-reviewer.md`](.claude/agents/security-reviewer.md) | ICS/SCADA 安全、OWASP 審計 | Read-only all |
+| Test Planner | [`.claude/agents/test-planner.md`](.claude/agents/test-planner.md) | 測試策略、案例撰寫、覆蓋率 | `tests/**/*.py` |
+| Doc Organizer | [`.claude/agents/doc-organizer.md`](.claude/agents/doc-organizer.md) | 文件維護、CHANGELOG、API docs | `docs/**/*.md`, `CHANGELOG.md`, `README.md` |
+| Performance Optimizer | [`.claude/agents/performance-optimizer.md`](.claude/agents/performance-optimizer.md) | 效能剖析、基準測試、Cython 相容 | `csp_lib/**/*.py` (coordinated) |
+
+### Team Templates
+
+| Team | File | Purpose | Pipeline |
+|------|------|---------|----------|
+| Feature Team | [`.claude/teams/feature-team.md`](.claude/teams/feature-team.md) | 完整功能開發 | driver → architect → implementer → [test ∥ security] → perf → docs |
+| Review Team | [`.claude/teams/review-team.md`](.claude/teams/review-team.md) | 程式碼審查 QA | [security ∥ test ∥ perf] → architect → docs |
+| Release Team | [`.claude/teams/release-team.md`](.claude/teams/release-team.md) | 發版準備 | [test ∥ security] → [driver ∥ docs] → implementer (bump) |
+| Audit-Demo Team | [`.claude/teams/audit-demo-team.md`](.claude/teams/audit-demo-team.md) | 品質稽核 + 整合示範 | [test ∥ architect ∥ security] → architect → implementer → test → [implementer ∥ docs] |
+| Hierarchical Control Team | [`.claude/teams/hierarchical-control-team.md`](.claude/teams/hierarchical-control-team.md) | 階層控制架構設計 | [architect ∥ security ∥ perf] → [architect ∥ driver] → [implementer ∥ test] → docs |
+
+### File Ownership Boundary (防衝突)
+
+| Directory / File | Owner | Others |
+|-----------------|-------|--------|
+| `csp_lib/**/*.py` | implementer | read |
+| `tests/**/*.py` | test-planner | read |
+| `docs/**/*.md` | doc-organizer | read |
+| `CHANGELOG.md` | doc-organizer | read (feature-driver drafts) |
+| `README.md`, `BUILDING.md` | doc-organizer | read |
+| `examples/*.py` | implementer | read |
+| `project.md` | feature-driver | read |
+| `pyproject.toml`, `.github/`, `build_wheel.py`, `setup.py` | human (manual) | read |
