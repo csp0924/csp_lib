@@ -16,7 +16,7 @@ Scenario:
   The controller uses capabilities to find devices, regardless of register names.
 """
 
-from csp_lib.equipment.core import ReadPoint, WritePoint, pipeline, ScaleTransform
+from csp_lib.equipment.core import ReadPoint, ScaleTransform, WritePoint, pipeline
 from csp_lib.equipment.core.point import RangeValidator
 from csp_lib.equipment.device import DeviceConfig
 from csp_lib.equipment.device.capability import (
@@ -67,7 +67,9 @@ huawei_template = EquipmentTemplate(
         ReadPoint(name="bat_soc", address=37004, data_type=UInt16(), pipeline=pipeline(ScaleTransform(0.1))),
     ),
     write_points=(
-        WritePoint(name="active_power_set", address=47075, data_type=Float32(), validator=RangeValidator(-100.0, 100.0)),
+        WritePoint(
+            name="active_power_set", address=47075, data_type=Float32(), validator=RangeValidator(-100.0, 100.0)
+        ),
         WritePoint(name="reactive_power_set", address=47077, data_type=Float32()),
         WritePoint(name="hb_reg", address=47000, data_type=UInt16()),
     ),
@@ -194,7 +196,7 @@ def demonstrate_registry():
     # Resolve point names uniformly
     for dev in heartbeat_devices:
         point = dev.resolve_point(HEARTBEAT, "heartbeat")
-        print(f"  {dev.device_id} → heartbeat point = '{point}'")
+        print(f"  {dev.device_id} -> heartbeat point = '{point}'")
         # pcs_sungrow_01 → "watchdog"
         # pcs_huawei_01  → "hb_reg"
         # pcs_huawei_02  → "hb_reg"

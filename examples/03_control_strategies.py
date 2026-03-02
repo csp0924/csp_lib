@@ -12,7 +12,6 @@ This example runs strategies against simulated context data (no real devices).
 """
 
 import asyncio
-from datetime import datetime, timezone
 
 from csp_lib.controller.core import Command, ExecutionConfig, ExecutionMode, StrategyContext, SystemBase
 from csp_lib.controller.executor import StrategyExecutor
@@ -23,7 +22,6 @@ from csp_lib.controller.strategies import (
     PQModeStrategy,
     QVConfig,
     QVStrategy,
-    StopStrategy,
 )
 
 # ============================================================
@@ -75,17 +73,17 @@ def example_qv_strategy():
     # Voltage too low → output positive Q (provide reactive power)
     context = StrategyContext(system_base=system_base, extra={"voltage": 370.0})
     command = strategy.execute(context)
-    print(f"V=370V → Q={command.q_target:.1f} kVar (inject reactive)")
+    print(f"V=370V -> Q={command.q_target:.1f} kVar (inject reactive)")
 
     # Voltage normal → Q ≈ 0
     context = StrategyContext(system_base=system_base, extra={"voltage": 380.0})
     command = strategy.execute(context)
-    print(f"V=380V → Q={command.q_target:.1f} kVar (normal)")
+    print(f"V=380V -> Q={command.q_target:.1f} kVar (normal)")
 
     # Voltage too high → output negative Q (absorb reactive)
     context = StrategyContext(system_base=system_base, extra={"voltage": 395.0})
     command = strategy.execute(context)
-    print(f"V=395V → Q={command.q_target:.1f} kVar (absorb reactive)")
+    print(f"V=395V -> Q={command.q_target:.1f} kVar (absorb reactive)")
 
 
 # ============================================================
@@ -98,18 +96,20 @@ def example_fp_strategy():
     print("\n=== FP Strategy (AFC) ===")
 
     # 6-point piecewise linear: frequency → power %
+    # f1-f6 are offsets from f_base (60.0 Hz)
     config = FPConfig(
-        f1=59.0,
+        f_base=60.0,
+        f1=-1.0,
         p1=100.0,  # f ≤ 59 Hz → 100% discharge
-        f2=59.5,
+        f2=-0.5,
         p2=50.0,  # f = 59.5 Hz → 50% discharge
-        f3=59.98,
+        f3=-0.02,
         p3=0.0,  # f = 59.98 Hz → 0% (deadband lower)
-        f4=60.02,
+        f4=0.02,
         p4=0.0,  # f = 60.02 Hz → 0% (deadband upper)
-        f5=60.5,
+        f5=0.5,
         p5=-50.0,  # f = 60.5 Hz → 50% charge
-        f6=61.0,
+        f6=1.0,
         p6=-100.0,  # f ≥ 61 Hz → 100% charge
     )
     strategy = FPStrategy(config)
@@ -119,7 +119,7 @@ def example_fp_strategy():
     for freq in [58.5, 59.5, 60.0, 60.5, 61.5]:
         context = StrategyContext(system_base=system_base, extra={"frequency": freq})
         command = strategy.execute(context)
-        print(f"f={freq:5.1f} Hz → P={command.p_target:7.1f} kW")
+        print(f"f={freq:5.1f} Hz -> P={command.p_target:7.1f} kW")
 
 
 # ============================================================

@@ -100,10 +100,12 @@ class WritePoint(PointDefinition):
 
     Attributes:
         validator: 值驗證器（可選）
+        pipeline: 寫入前資料處理管線（可選），將使用者值轉換為暫存器值
         metadata: 點位元資料（可選）
     """
 
     validator: ValueValidator | None = None
+    pipeline: ProcessingPipeline | None = None
     metadata: PointMetadata | None = None
 
     def __post_init__(self) -> None:

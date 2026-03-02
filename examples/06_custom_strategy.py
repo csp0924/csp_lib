@@ -234,7 +234,7 @@ async def example_pf_pid():
         # (simplified: each 10 kVar of Q improves PF by ~0.01)
         q_effect = command.q_target * 0.001
         state["pf"] = min(1.0, state["pf"] + q_effect)
-        print(f"  PF={state['pf']:.3f}  →  Q={command.q_target:+.1f} kVar")
+        print(f"  PF={state['pf']:.3f}  ->  Q={command.q_target:+.1f} kVar")
 
     # Create executor with PF strategy
     executor = StrategyExecutor(context_provider=context_provider, on_command=on_command)
@@ -284,7 +284,7 @@ async def example_load_shedding():
     task = asyncio.create_task(executor.run())
 
     # Simulate external triggers (demand response signals)
-    print("  Initial: 300 kW → shedding to 50 kW (80 kW/step)")
+    print("  Initial: 300 kW -> shedding to 50 kW (80 kW/step)")
     for i in range(5):
         await asyncio.sleep(0.5)
         print(f"  --- Trigger #{i + 1} (demand response) ---")

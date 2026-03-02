@@ -73,6 +73,10 @@ class ValidatedWriter:
             )
 
         try:
+            # 寫入前管線轉換（使用者值 → 暫存器值）
+            if point.pipeline is not None:
+                value = point.pipeline.process(value)
+
             # 編碼
             encoded = self._encode(point, value)
 

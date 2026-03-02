@@ -17,10 +17,11 @@ import asyncio
 
 from csp_lib.equipment.alarm import (
     AlarmDefinition,
-    AlarmEvaluator,
     AlarmLevel,
-    BitMaskEvaluator,
-    ThresholdEvaluator,
+    BitMaskAlarmEvaluator,
+    Operator,
+    ThresholdAlarmEvaluator,
+    ThresholdCondition,
 )
 from csp_lib.equipment.core import (
     ReadPoint,
@@ -93,22 +94,29 @@ q_set = WritePoint(
 # ============================================================
 
 # Bitmask alarm: check fault_code register bits
-fault_evaluator = BitMaskEvaluator(
+fault_evaluator = BitMaskAlarmEvaluator(
     point_name="fault_code",
-    alarms=[
-        AlarmDefinition(code="OVER_TEMP", level=AlarmLevel.WARNING, bit=0, description="Over-temperature"),
-        AlarmDefinition(code="OVER_CURR", level=AlarmLevel.FAULT, bit=1, description="Over-current"),
-        AlarmDefinition(code="DC_FAULT", level=AlarmLevel.PROTECTION, bit=2, description="DC bus fault"),
-    ],
+    bit_alarms={
+        0: AlarmDefinition(
+            code="OVER_TEMP", name="Over-temperature", level=AlarmLevel.WARNING, description="Over-temperature"
+        ),
+        1: AlarmDefinition(code="OVER_CURR", name="Over-current", level=AlarmLevel.ALARM, description="Over-current"),
+        2: AlarmDefinition(code="DC_FAULT", name="DC bus fault", level=AlarmLevel.ALARM, description="DC bus fault"),
+    },
 )
 
 # Threshold alarm: SOC too low
-soc_evaluator = ThresholdEvaluator(
+soc_evaluator = ThresholdAlarmEvaluator(
     point_name="soc",
-    alarms=[
-        AlarmDefinition(code="SOC_LOW", level=AlarmLevel.WARNING, description="SOC below 10%"),
+    conditions=[
+        ThresholdCondition(
+            alarm=AlarmDefinition(
+                code="SOC_LOW", name="SOC Low", level=AlarmLevel.WARNING, description="SOC below 10%"
+            ),
+            operator=Operator.LT,
+            value=10.0,
+        ),
     ],
-    low_threshold=10.0,
 )
 
 # ============================================================
@@ -143,7 +151,7 @@ async def main():
     # ========================================================
 
     async def on_value_change(payload):
-        print(f"[{payload.device_id}] {payload.point_name}: {payload.old_value} → {payload.new_value}")
+        print(f"[{payload.device_id}] {payload.point_name}: {payload.old_value} -> {payload.new_value}")
 
     async def on_alarm_triggered(payload):
         event = payload.alarm_event

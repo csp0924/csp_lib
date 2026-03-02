@@ -55,8 +55,6 @@ from csp_lib.integration import (
     SystemController,
     SystemControllerConfig,
 )
-from csp_lib.integration.schema import HeartbeatMapping
-
 
 # ============================================================
 # Step 1: Setup (same pattern as example 04)

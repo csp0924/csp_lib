@@ -145,6 +145,11 @@ class CascadingStrategy:
 
         return accumulated
 
+    @property
+    def suppress_heartbeat(self) -> bool:
+        """級聯策略不暫停心跳"""
+        return False
+
     async def on_activate(self) -> None:
         """委派給所有子策略"""
         for layer in self._layers:

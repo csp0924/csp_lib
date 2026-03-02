@@ -26,7 +26,8 @@
       "Bash(grep:*)",
       "Bash(git -C /Users/csp0924/csplib log --oneline -5)",
       "Bash(sed:*)",
-      "Bash(SKIP_CYTHON=1 uv run:*)"
+      "Bash(SKIP_CYTHON=1 uv run:*)",
+      "Bash(PYTHONUTF8=1 uv run:*)"
     ]
   }
 }
