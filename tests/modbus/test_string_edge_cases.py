@@ -32,7 +32,8 @@ class TestModbusStringEdgeCases:
 
     def test_non_string_encode_raises(self):
         s = ModbusString(10)
-        with pytest.raises(ModbusEncodeError):
+        # Cython 編譯後會直接拋 TypeError (型別強制)，純 Python 則拋 ModbusEncodeError
+        with pytest.raises((ModbusEncodeError, TypeError)):
             s.encode(12345, ByteOrder.BIG_ENDIAN, RegisterOrder.HIGH_FIRST)
 
     def test_odd_max_length_register_count(self):

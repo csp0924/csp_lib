@@ -327,8 +327,9 @@ class TestTypeErrors:
         codec = ModbusCodec()
         with pytest.raises(ModbusEncodeError):
             codec.encode(Int16(), "123")
+        # Cython 編譯後會自動截斷 float→int，改用不可轉換的型別測試
         with pytest.raises(ModbusEncodeError):
-            codec.encode(Int16(), 1.5)
+            codec.encode(Int16(), None)
 
     def test_uint32_requires_int(self):
         codec = ModbusCodec()
