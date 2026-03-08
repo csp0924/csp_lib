@@ -388,8 +388,8 @@ async def example_required_capabilities():
         print("    (none installed — install a package that registers csp_lib.strategies)")
 
     print("\n  To publish your own strategy plugin, add to your pyproject.toml:")
-    print("    [project.entry-points.\"csp_lib.strategies\"]")
-    print("    my_strategy = \"my_package.strategies:MyStrategy\"")
+    print('    [project.entry-points."csp_lib.strategies"]')
+    print('    my_strategy = "my_package.strategies:MyStrategy"')
 
 
 async def main():

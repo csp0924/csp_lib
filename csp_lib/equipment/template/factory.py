@@ -126,18 +126,14 @@ class DeviceFactory:
         if overrides:
             name_map = _build_name_map(overrides)
             always_points = _apply_overrides_to_read_points(always_points, overrides)
-            rotating_points = tuple(
-                _apply_overrides_to_read_points(group, overrides) for group in rotating_points
-            )
+            rotating_points = tuple(_apply_overrides_to_read_points(group, overrides) for group in rotating_points)
             write_points = _apply_overrides_to_write_points(write_points, overrides)
             alarm_evaluators = _apply_overrides_to_evaluators(alarm_evaluators, name_map)
 
         # 套用位址偏移
         if address_offset != 0:
             always_points = _apply_offset_to_read_points(always_points, address_offset)
-            rotating_points = tuple(
-                _apply_offset_to_read_points(group, address_offset) for group in rotating_points
-            )
+            rotating_points = tuple(_apply_offset_to_read_points(group, address_offset) for group in rotating_points)
             write_points = _apply_offset_to_write_points(write_points, address_offset)
 
         return AsyncModbusDevice(

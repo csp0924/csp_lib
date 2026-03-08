@@ -62,9 +62,7 @@ class _DynamicIntBase(ModbusDataType):
         if not isinstance(value, int):
             raise ModbusEncodeError(f"{self._type_label()} 需要整數，收到: {type(value).__name__}")
         if not self._min_value <= value <= self._max_value:
-            raise ModbusEncodeError(
-                f"{self._type_label()} 範圍為 {self._min_value}~{self._max_value}，收到: {value}"
-            )
+            raise ModbusEncodeError(f"{self._type_label()} 範圍為 {self._min_value}~{self._max_value}，收到: {value}")
 
         # 處理負數：轉換為補數表示
         raw = value

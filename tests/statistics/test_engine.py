@@ -111,27 +111,15 @@ class TestEngineMultiDevice:
         engine = StatisticsEngine(config)
 
         # Feed both devices
-        engine.process_read(
-            "pcs_01", {"kwh_total": 100.0}, datetime(2025, 1, 1, 10, 2, 0, tzinfo=timezone.utc)
-        )
-        engine.process_read(
-            "pcs_02", {"active_power": 50.0}, datetime(2025, 1, 1, 10, 2, 0, tzinfo=timezone.utc)
-        )
+        engine.process_read("pcs_01", {"kwh_total": 100.0}, datetime(2025, 1, 1, 10, 2, 0, tzinfo=timezone.utc))
+        engine.process_read("pcs_02", {"active_power": 50.0}, datetime(2025, 1, 1, 10, 2, 0, tzinfo=timezone.utc))
 
         # Cross boundary for both
-        engine.process_read(
-            "pcs_01", {"kwh_total": 110.0}, datetime(2025, 1, 1, 10, 10, 0, tzinfo=timezone.utc)
-        )
-        engine.process_read(
-            "pcs_02", {"active_power": 60.0}, datetime(2025, 1, 1, 10, 10, 0, tzinfo=timezone.utc)
-        )
+        engine.process_read("pcs_01", {"kwh_total": 110.0}, datetime(2025, 1, 1, 10, 10, 0, tzinfo=timezone.utc))
+        engine.process_read("pcs_02", {"active_power": 60.0}, datetime(2025, 1, 1, 10, 10, 0, tzinfo=timezone.utc))
 
-        r1 = engine.process_read(
-            "pcs_01", {"kwh_total": 120.0}, datetime(2025, 1, 1, 10, 16, 0, tzinfo=timezone.utc)
-        )
-        r2 = engine.process_read(
-            "pcs_02", {"active_power": 70.0}, datetime(2025, 1, 1, 10, 16, 0, tzinfo=timezone.utc)
-        )
+        r1 = engine.process_read("pcs_01", {"kwh_total": 120.0}, datetime(2025, 1, 1, 10, 16, 0, tzinfo=timezone.utc))
+        r2 = engine.process_read("pcs_02", {"active_power": 70.0}, datetime(2025, 1, 1, 10, 16, 0, tzinfo=timezone.utc))
 
         assert len(r1) == 1
         assert r1[0].device_id == "pcs_01"

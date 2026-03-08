@@ -160,9 +160,7 @@ class TestDistributedControllerBuildContext:
 
         from csp_lib.cluster.context import VirtualContextBuilder
 
-        ctrl._virtual_builder = VirtualContextBuilder(
-            subscriber=sub, mappings=[], trait_device_map={}
-        )
+        ctrl._virtual_builder = VirtualContextBuilder(subscriber=sub, mappings=[], trait_device_map={})
 
         ctx = ctrl._build_context()
         assert ctx.extra.get("system_alarm") is True
@@ -181,9 +179,7 @@ class TestDistributedControllerBuildContext:
 
         from csp_lib.cluster.context import VirtualContextBuilder
 
-        ctrl._virtual_builder = VirtualContextBuilder(
-            subscriber=sub, mappings=[], trait_device_map={}
-        )
+        ctrl._virtual_builder = VirtualContextBuilder(subscriber=sub, mappings=[], trait_device_map={})
 
         ctx = ctrl._build_context()
         assert ctx.extra.get("system_alarm") is False

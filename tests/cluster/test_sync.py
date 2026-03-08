@@ -206,13 +206,15 @@ class TestClusterStateSubscriber:
 
         redis.get = AsyncMock(return_value=None)
         redis.hgetall = AsyncMock(
-            side_effect=lambda key: {
-                "base_modes": json.dumps(["pq"]),
-                "overrides": json.dumps([]),
-                "effective_mode": "pq",
-            }
-            if "mode_state" in key
-            else {}
+            side_effect=lambda key: (
+                {
+                    "base_modes": json.dumps(["pq"]),
+                    "overrides": json.dumps([]),
+                    "effective_mode": "pq",
+                }
+                if "mode_state" in key
+                else {}
+            )
         )
 
         subscriber = ClusterStateSubscriber(config=config, redis_client=redis)

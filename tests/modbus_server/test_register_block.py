@@ -109,15 +109,11 @@ class TestRegisterBlockFindPoints:
         self.block = RegisterBlock()
         f32 = Float32()
         u16 = UInt16()
-        self.block.register_point(
-            SimulatedPoint(name="voltage", address=0, data_type=f32, initial_value=380.0)
-        )
+        self.block.register_point(SimulatedPoint(name="voltage", address=0, data_type=f32, initial_value=380.0))
         self.block.register_point(
             SimulatedPoint(name="power", address=2, data_type=f32, initial_value=0.0, writable=True)
         )
-        self.block.register_point(
-            SimulatedPoint(name="status", address=4, data_type=u16, initial_value=1)
-        )
+        self.block.register_point(SimulatedPoint(name="status", address=4, data_type=u16, initial_value=1))
 
     def test_find_point_at_address(self):
         """查找指定 address 的 point"""

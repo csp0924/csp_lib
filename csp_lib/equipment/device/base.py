@@ -114,9 +114,7 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
 
         # 儲存原始點位定義
         self._read_points_always: tuple[ReadPoint, ...] = tuple(always_points)
-        self._read_points_rotating: tuple[tuple[ReadPoint, ...], ...] = tuple(
-            tuple(pts) for pts in rotating_points
-        )
+        self._read_points_rotating: tuple[tuple[ReadPoint, ...], ...] = tuple(tuple(pts) for pts in rotating_points)
 
         # 建立排程器（自動分組）
         self._grouper = PointGrouper()
@@ -150,9 +148,7 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
         self._aggregator_pipeline = aggregator_pipeline
 
         # 能力綁定
-        self._capability_bindings: dict[str, CapabilityBinding] = {
-            b.capability.name: b for b in capability_bindings
-        }
+        self._capability_bindings: dict[str, CapabilityBinding] = {b.capability.name: b for b in capability_bindings}
 
         # 點位開關
         self._disabled_points: set[str] = set()

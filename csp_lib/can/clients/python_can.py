@@ -138,9 +138,7 @@ class PythonCANClient(AsyncCANClientBase):
             await self.send(can_id, data)
             return await asyncio.wait_for(future, timeout=timeout)
         except asyncio.TimeoutError as e:
-            raise CANTimeoutError(
-                f"等待 CAN ID 0x{response_id:03X} 回應逾時 ({timeout}s)"
-            ) from e
+            raise CANTimeoutError(f"等待 CAN ID 0x{response_id:03X} 回應逾時 ({timeout}s)") from e
         finally:
             self._pending_responses.pop(response_id, None)
 
@@ -172,9 +170,7 @@ class PythonCANClient(AsyncCANClientBase):
                         if asyncio.iscoroutine(result):
                             await result
                     except Exception:
-                        logger.opt(exception=True).warning(
-                            "CAN handler 錯誤: can_id=0x{:03X}", frame.can_id
-                        )
+                        logger.opt(exception=True).warning("CAN handler 錯誤: can_id=0x{:03X}", frame.can_id)
 
             except asyncio.CancelledError:
                 break

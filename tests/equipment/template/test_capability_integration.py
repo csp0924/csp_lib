@@ -53,9 +53,7 @@ class TestEquipmentTemplateValidation:
                 always_points=(self._make_read_point("active_power"),),
                 write_points=(),  # missing p_set!
                 capability_bindings=(
-                    CapabilityBinding(
-                        ACTIVE_POWER_CONTROL, {"p_setpoint": "p_set", "p_measurement": "active_power"}
-                    ),
+                    CapabilityBinding(ACTIVE_POWER_CONTROL, {"p_setpoint": "p_set", "p_measurement": "active_power"}),
                 ),
             )
 
@@ -68,9 +66,7 @@ class TestEquipmentTemplateValidation:
                 always_points=(),  # missing active_power!
                 write_points=(self._make_write_point("p_set"),),
                 capability_bindings=(
-                    CapabilityBinding(
-                        ACTIVE_POWER_CONTROL, {"p_setpoint": "p_set", "p_measurement": "active_power"}
-                    ),
+                    CapabilityBinding(ACTIVE_POWER_CONTROL, {"p_setpoint": "p_set", "p_measurement": "active_power"}),
                 ),
             )
 

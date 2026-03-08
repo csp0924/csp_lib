@@ -460,12 +460,14 @@ class TestPublisherDistributed:
         config = MonitorConfig(redis_key_prefix="test", metrics_ttl=30)
         publisher = RedisMonitorPublisher(mock_redis, config, dist_config)
         # For refresh_node_registration
-        mock_redis.get.return_value = json.dumps({
-            "instance_id": "node-1",
-            "hostname": "host",
-            "started_at": "2026-01-01T00:00:00",
-            "last_seen": "2026-01-01T00:00:00",
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "instance_id": "node-1",
+                "hostname": "host",
+                "started_at": "2026-01-01T00:00:00",
+                "last_seen": "2026-01-01T00:00:00",
+            }
+        )
         await publisher.publish_metrics(SystemMetrics())
 
         # hset calls: local metrics + distributed metrics
@@ -494,12 +496,14 @@ class TestPublisherDistributed:
     async def test_refresh_node_registration(self, mock_redis, dist_config):
         config = MonitorConfig(redis_key_prefix="test")
         publisher = RedisMonitorPublisher(mock_redis, config, dist_config)
-        mock_redis.get.return_value = json.dumps({
-            "instance_id": "node-1",
-            "hostname": "host",
-            "started_at": "2026-01-01T00:00:00",
-            "last_seen": "2026-01-01T00:00:00",
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "instance_id": "node-1",
+                "hostname": "host",
+                "started_at": "2026-01-01T00:00:00",
+                "last_seen": "2026-01-01T00:00:00",
+            }
+        )
         await publisher.refresh_node_registration()
         mock_redis.set.assert_called_once()
         data = json.loads(mock_redis.set.call_args[0][1])
@@ -609,18 +613,22 @@ class TestClusterMonitorAggregator:
     async def test_discover_nodes(self, mock_redis, dist_config):
         mock_redis.keys.return_value = ["monitor:test:nodes:node-1", "monitor:test:nodes:node-2"]
         mock_redis.get.side_effect = [
-            json.dumps({
-                "instance_id": "node-1",
-                "hostname": "host1",
-                "started_at": "2026-01-01T00:00:00",
-                "last_seen": "2026-01-01T00:01:00",
-            }),
-            json.dumps({
-                "instance_id": "node-2",
-                "hostname": "host2",
-                "started_at": "2026-01-01T00:00:00",
-                "last_seen": "2026-01-01T00:01:00",
-            }),
+            json.dumps(
+                {
+                    "instance_id": "node-1",
+                    "hostname": "host1",
+                    "started_at": "2026-01-01T00:00:00",
+                    "last_seen": "2026-01-01T00:01:00",
+                }
+            ),
+            json.dumps(
+                {
+                    "instance_id": "node-2",
+                    "hostname": "host2",
+                    "started_at": "2026-01-01T00:00:00",
+                    "last_seen": "2026-01-01T00:01:00",
+                }
+            ),
         ]
 
         agg = ClusterMonitorAggregator(mock_redis, dist_config)
@@ -693,12 +701,14 @@ class TestClusterMonitorAggregator:
     @pytest.mark.asyncio
     async def test_aggregation_cycle(self, mock_redis, dist_config):
         mock_redis.keys.return_value = ["monitor:test:nodes:node-1"]
-        mock_redis.get.return_value = json.dumps({
-            "instance_id": "node-1",
-            "hostname": "host1",
-            "started_at": "2026-01-01T00:00:00",
-            "last_seen": "2026-01-01T00:01:00",
-        })
+        mock_redis.get.return_value = json.dumps(
+            {
+                "instance_id": "node-1",
+                "hostname": "host1",
+                "started_at": "2026-01-01T00:00:00",
+                "last_seen": "2026-01-01T00:01:00",
+            }
+        )
         mock_redis.hgetall.return_value = {"cpu_percent": 45.0, "updated_at": "2026-01-01T00:00:00"}
         mock_redis.smembers.return_value = set()
 

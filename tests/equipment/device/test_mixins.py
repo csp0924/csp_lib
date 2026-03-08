@@ -146,9 +146,7 @@ class TestWriteMixin:
         host = _WriteHost()
         mock_point = MagicMock()
         host._write_points["p_set"] = mock_point
-        host._writer.write.return_value = WriteResult(
-            status=WriteStatus.SUCCESS, point_name="p_set", value=100.0
-        )
+        host._writer.write.return_value = WriteResult(status=WriteStatus.SUCCESS, point_name="p_set", value=100.0)
 
         result = await host.write("p_set", 100.0)
 

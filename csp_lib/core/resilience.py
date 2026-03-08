@@ -97,7 +97,7 @@ class RetryPolicy:
 
     def get_delay(self, attempt: int) -> float:
         """計算第 N 次重試的延遲時間"""
-        return self.base_delay * (self.exponential_base ** attempt)
+        return self.base_delay * (self.exponential_base**attempt)
 
 
 __all__ = [

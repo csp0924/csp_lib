@@ -89,10 +89,12 @@ def check_requirements() -> bool:
             print("[OK] MSVC compiler (cl.exe) found")
         else:
             # 嘗試透過 vswhere 檢查 Visual Studio 是否安裝
-            vswhere = Path(os.environ.get("ProgramFiles(x86)", "")) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+            vswhere = (
+                Path(os.environ.get("ProgramFiles(x86)", "")) / "Microsoft Visual Studio" / "Installer" / "vswhere.exe"
+            )
             if vswhere.exists():
                 vs_result = subprocess.run(
-                    [str(vswhere), "-latest", "-property", "installationPath"],
+                    [str(vswhere), "-latest", "-products", "*", "-property", "installationPath"],
                     capture_output=True,
                     text=True,
                 )

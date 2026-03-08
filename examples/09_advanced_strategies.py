@@ -470,8 +470,8 @@ async def demo_load_shedding():
     # Define shedding conditions
     low_soc_condition = ThresholdCondition(
         context_key="soc",
-        shed_below=25.0,    # Shed when SOC < 25%
-        restore_above=35.0, # Restore when SOC > 35%
+        shed_below=25.0,  # Shed when SOC < 25%
+        restore_above=35.0,  # Restore when SOC > 35%
     )
 
     # Define load circuits
@@ -485,19 +485,19 @@ async def demo_load_shedding():
                 name="stage1_non_critical",
                 circuits=[ac_unit, water_heater],
                 condition=low_soc_condition,
-                priority=0,           # Shed first (lowest priority)
-                min_hold_seconds=0.0, # No hold time for demo
+                priority=0,  # Shed first (lowest priority)
+                min_hold_seconds=0.0,  # No hold time for demo
             ),
             ShedStage(
                 name="stage2_semi_critical",
                 circuits=[ev_charger],
                 condition=ThresholdCondition(context_key="soc", shed_below=15.0, restore_above=20.0),
-                priority=1,           # Shed second (higher priority)
+                priority=1,  # Shed second (higher priority)
                 min_hold_seconds=0.0,
             ),
         ],
         evaluation_interval=1,
-        restore_delay=0.1,            # Short delay for demo
+        restore_delay=0.1,  # Short delay for demo
         auto_restore_on_deactivate=True,
     )
 

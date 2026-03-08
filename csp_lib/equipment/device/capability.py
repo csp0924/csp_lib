@@ -79,14 +79,10 @@ class CapabilityBinding:
         provided = set(self.point_map.keys())
         missing = required - provided
         if missing:
-            raise ConfigurationError(
-                f"Capability '{self.capability.name}' binding missing slots: {sorted(missing)}"
-            )
+            raise ConfigurationError(f"Capability '{self.capability.name}' binding missing slots: {sorted(missing)}")
         extra = provided - required
         if extra:
-            raise ConfigurationError(
-                f"Capability '{self.capability.name}' binding has unknown slots: {sorted(extra)}"
-            )
+            raise ConfigurationError(f"Capability '{self.capability.name}' binding has unknown slots: {sorted(extra)}")
 
     def resolve(self, slot: str) -> str:
         """將語意插槽解析為實際點位名稱"""

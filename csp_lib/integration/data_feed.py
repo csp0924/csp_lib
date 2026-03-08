@@ -65,7 +65,9 @@ class DeviceDataFeed:
         if self._mapping.device_id is not None:
             device = self._registry.get_device(self._mapping.device_id)
             if device is None:
-                logger.warning("DeviceDataFeed: device '%s' not found, data feed not attached.", self._mapping.device_id)
+                logger.warning(
+                    "DeviceDataFeed: device '%s' not found, data feed not attached.", self._mapping.device_id
+                )
                 return
             self._unsubscribes = [device.on(EVENT_READ_COMPLETE, self._on_read_complete)]
         else:

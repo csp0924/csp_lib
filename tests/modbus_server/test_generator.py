@@ -96,9 +96,7 @@ class TestGeneratorAlarms:
     """發電機告警測試"""
 
     def test_alarm_trigger(self):
-        alarm_cfg = (
-            AlarmPointConfig(alarm_code="LOW_OIL", bit_position=0, reset_mode=AlarmResetMode.AUTO),
-        )
+        alarm_cfg = (AlarmPointConfig(alarm_code="LOW_OIL", bit_position=0, reset_mode=AlarmResetMode.AUTO),)
         config = default_generator_config(alarm_points=alarm_cfg)
         sim = GeneratorSimulator(config=config)
 

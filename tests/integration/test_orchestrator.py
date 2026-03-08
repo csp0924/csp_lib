@@ -171,10 +171,12 @@ class TestOrchestratorExecute:
         reg.register(d2, traits=["mbms"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="start_mbms",
-            steps=[CommandStep(action="start", trait="mbms")],
-        ))
+        orch.register(
+            SystemCommand(
+                name="start_mbms",
+                steps=[CommandStep(action="start", trait="mbms")],
+            )
+        )
 
         result = await orch.execute("start_mbms")
         assert result.status == "success"
@@ -196,10 +198,12 @@ class TestOrchestratorExecute:
         reg.register(d3)
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="stop", device_ids=["d1", "d3"])],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="stop", device_ids=["d1", "d3"])],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -214,10 +218,12 @@ class TestOrchestratorExecute:
         reg.register(d1, traits=["pcs"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="set_power",
-            steps=[CommandStep(action="set_power", trait="pcs", params={"p": 80, "q": 10})],
-        ))
+        orch.register(
+            SystemCommand(
+                name="set_power",
+                steps=[CommandStep(action="set_power", trait="pcs", params={"p": 80, "q": 10})],
+            )
+        )
 
         result = await orch.execute("set_power")
         assert result.status == "success"
@@ -232,13 +238,15 @@ class TestOrchestratorExecute:
         reg.register(pcs, traits=["pcs"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="system_start",
-            steps=[
-                CommandStep(action="start", trait="mbms", description="Start MBMS"),
-                CommandStep(action="start", trait="pcs", description="Start PCS"),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="system_start",
+                steps=[
+                    CommandStep(action="start", trait="mbms", description="Start MBMS"),
+                    CommandStep(action="start", trait="pcs", description="Start PCS"),
+                ],
+            )
+        )
 
         result = await orch.execute("system_start")
         assert result.status == "success"
@@ -257,13 +265,15 @@ class TestOrchestratorExecute:
         reg.register(pcs, traits=["pcs"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="system_start",
-            steps=[
-                CommandStep(action="start", trait="mbms", description="Start MBMS"),
-                CommandStep(action="start", trait="pcs", description="Start PCS"),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="system_start",
+                steps=[
+                    CommandStep(action="start", trait="mbms", description="Start MBMS"),
+                    CommandStep(action="start", trait="pcs", description="Start PCS"),
+                ],
+            )
+        )
 
         result = await orch.execute("system_start")
         assert result.status == "aborted"
@@ -283,10 +293,12 @@ class TestOrchestratorExecute:
         reg.register(d2, traits=["mbms"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="mbms")],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="mbms")],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -297,10 +309,12 @@ class TestOrchestratorExecute:
     async def test_execute_no_devices_found(self):
         reg = DeviceRegistry()
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="nonexistent")],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="nonexistent")],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -312,10 +326,12 @@ class TestOrchestratorExecute:
         """Missing device_ids are skipped; if all missing, step fails."""
         reg = DeviceRegistry()
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", device_ids=["ghost"])],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", device_ids=["ghost"])],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -329,10 +345,12 @@ class TestOrchestratorExecute:
         reg.register(d1)
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", device_ids=["d1", "ghost"])],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", device_ids=["d1", "ghost"])],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -352,10 +370,12 @@ class TestOrchestratorExecute:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="test")],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="test")],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -373,10 +393,12 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="test", delay_before=0.05)],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="test", delay_before=0.05)],
+            )
+        )
 
         loop = asyncio.get_event_loop()
         t0 = loop.time()
@@ -393,16 +415,18 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(
-                    action="start",
-                    trait="test",
-                    check_after=StepCheck(trait="test", check="is_responsive", timeout=1.0, poll_interval=0.05),
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        trait="test",
+                        check_after=StepCheck(trait="test", check="is_responsive", timeout=1.0, poll_interval=0.05),
+                    ),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -415,16 +439,18 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(
-                    action="start",
-                    trait="test",
-                    check_after=StepCheck(trait="test", check="is_responsive", timeout=0.1, poll_interval=0.02),
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        trait="test",
+                        check_after=StepCheck(trait="test", check="is_responsive", timeout=0.1, poll_interval=0.02),
+                    ),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -441,16 +467,20 @@ class TestOrchestratorDelayAndCheck:
         reg.register(d2)
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(
-                    action="start",
-                    device_ids=["d1", "d2"],
-                    check_after=StepCheck(device_ids=["d1", "d2"], check="is_responsive", timeout=1.0, poll_interval=0.05),
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        device_ids=["d1", "d2"],
+                        check_after=StepCheck(
+                            device_ids=["d1", "d2"], check="is_responsive", timeout=1.0, poll_interval=0.05
+                        ),
+                    ),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -478,16 +508,18 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(
-                    action="start",
-                    trait="test",
-                    check_after=StepCheck(trait="test", check="is_responsive", timeout=2.0, poll_interval=0.05),
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        trait="test",
+                        check_after=StepCheck(trait="test", check="is_responsive", timeout=2.0, poll_interval=0.05),
+                    ),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -501,10 +533,12 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="test")],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="test")],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.step_results[0].check_passed is None
@@ -517,16 +551,18 @@ class TestOrchestratorDelayAndCheck:
         reg.register(dev, traits=["test"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(
-                    action="start",
-                    trait="test",
-                    check_after=StepCheck(trait="nonexistent", check="is_responsive", timeout=0.1),
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        trait="test",
+                        check_after=StepCheck(trait="nonexistent", check="is_responsive", timeout=0.1),
+                    ),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "success"
@@ -577,34 +613,38 @@ class TestOrchestratorFullSequence:
         orch = SystemCommandOrchestrator(reg)
 
         # Register start
-        orch.register(SystemCommand(
-            name="system_start",
-            description="Start all MBMS then PCS",
-            steps=[
-                CommandStep(
-                    action="start",
-                    trait="mbms",
-                    description="Start all MBMS",
-                    check_after=StepCheck(trait="mbms", check="is_responsive", timeout=1.0, poll_interval=0.05),
-                ),
-                CommandStep(
-                    action="start",
-                    trait="pcs",
-                    delay_before=0.01,
-                    description="Start all PCS",
-                ),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="system_start",
+                description="Start all MBMS then PCS",
+                steps=[
+                    CommandStep(
+                        action="start",
+                        trait="mbms",
+                        description="Start all MBMS",
+                        check_after=StepCheck(trait="mbms", check="is_responsive", timeout=1.0, poll_interval=0.05),
+                    ),
+                    CommandStep(
+                        action="start",
+                        trait="pcs",
+                        delay_before=0.01,
+                        description="Start all PCS",
+                    ),
+                ],
+            )
+        )
 
         # Register stop (reverse order)
-        orch.register(SystemCommand(
-            name="system_stop",
-            description="Stop all PCS then MBMS",
-            steps=[
-                CommandStep(action="stop", trait="pcs", description="Stop all PCS"),
-                CommandStep(action="stop", trait="mbms", delay_before=0.01, description="Stop all MBMS"),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="system_stop",
+                description="Stop all PCS then MBMS",
+                steps=[
+                    CommandStep(action="stop", trait="pcs", description="Stop all PCS"),
+                    CommandStep(action="stop", trait="mbms", delay_before=0.01, description="Stop all MBMS"),
+                ],
+            )
+        )
 
         # Execute start
         start_result = await orch.execute("system_start")
@@ -640,14 +680,16 @@ class TestOrchestratorFullSequence:
         reg.register(d3, traits=["group3"])
 
         orch = SystemCommandOrchestrator(reg)
-        orch.register(SystemCommand(
-            name="test",
-            steps=[
-                CommandStep(action="start", trait="group1"),
-                CommandStep(action="start", trait="group2"),
-                CommandStep(action="start", trait="group3"),
-            ],
-        ))
+        orch.register(
+            SystemCommand(
+                name="test",
+                steps=[
+                    CommandStep(action="start", trait="group1"),
+                    CommandStep(action="start", trait="group2"),
+                    CommandStep(action="start", trait="group3"),
+                ],
+            )
+        )
 
         result = await orch.execute("test")
         assert result.status == "aborted"
@@ -680,10 +722,12 @@ class TestOrchestratorWithSystemController:
 
         config = SystemControllerConfig()
         sc = SystemController(reg, config)
-        sc.orchestrator.register(SystemCommand(
-            name="test",
-            steps=[CommandStep(action="start", trait="test")],
-        ))
+        sc.orchestrator.register(
+            SystemCommand(
+                name="test",
+                steps=[CommandStep(action="start", trait="test")],
+            )
+        )
 
         result = await sc.orchestrator.execute("test")
         assert result.status == "success"

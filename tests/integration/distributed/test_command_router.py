@@ -179,9 +179,7 @@ class TestRemoteCommandRouterRoute:
         def bad_transform(v):
             raise ValueError("bad")
 
-        mappings = [
-            CommandMapping(command_field="p_target", point_name="sp", device_id="d1", transform=bad_transform)
-        ]
+        mappings = [CommandMapping(command_field="p_target", point_name="sp", device_id="d1", transform=bad_transform)]
 
         router = RemoteCommandRouter(config, redis, sub, mappings)
         await router.route(Command(p_target=100.0))

@@ -119,9 +119,7 @@ class _MultiRegisterInt(ModbusDataType):
         if not isinstance(value, int):
             raise ModbusEncodeError(f"{self._type_name} 需要整數，收到: {type(value).__name__}")
         if not self._min_value <= value <= self._max_value:
-            raise ModbusEncodeError(
-                f"{self._type_name} 範圍為 {self._min_value}~{self._max_value}，收到: {value}"
-            )
+            raise ModbusEncodeError(f"{self._type_name} 範圍為 {self._min_value}~{self._max_value}，收到: {value}")
 
         packed = struct.pack(f"{byte_order.value}{self._struct_format}", value)
         return split_to_registers(packed, self._register_count, byte_order, register_order)
@@ -133,9 +131,7 @@ class _MultiRegisterInt(ModbusDataType):
         register_order: RegisterOrder,
     ) -> int:
         if len(registers) < self._register_count:
-            raise ModbusDecodeError(
-                f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}"
-            )
+            raise ModbusDecodeError(f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}")
 
         packed = assemble_from_registers(registers, self._register_count, byte_order, register_order)
         return struct.unpack(f"{byte_order.value}{self._struct_format}", packed)[0]
@@ -171,9 +167,7 @@ class _MultiRegisterFloat(ModbusDataType):
         register_order: RegisterOrder,
     ) -> float:
         if len(registers) < self._register_count:
-            raise ModbusDecodeError(
-                f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}"
-            )
+            raise ModbusDecodeError(f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}")
 
         packed = assemble_from_registers(registers, self._register_count, byte_order, register_order)
         return struct.unpack(f"{byte_order.value}{self._struct_format}", packed)[0]

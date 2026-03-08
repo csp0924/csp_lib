@@ -95,9 +95,7 @@ class TestAlarmNotification:
         mock_psutil.cpu_percent.return_value = 95.0  # 超過閾值
 
         with patch.dict("sys.modules", {"psutil": mock_psutil}):
-            async with SystemMonitor(
-                redis_client=mock_redis, dispatcher=mock_dispatcher, config=config
-            ) as monitor:
+            async with SystemMonitor(redis_client=mock_redis, dispatcher=mock_dispatcher, config=config) as monitor:
                 await asyncio.sleep(0.25)
                 assert "SYS_CPU_HIGH" in monitor.active_alarms
 
@@ -139,9 +137,7 @@ class TestModuleHealth:
     @pytest.mark.asyncio
     async def test_register_module(self, mock_redis, config):
         module = MagicMock()
-        module.health.return_value = HealthReport(
-            status=HealthStatus.HEALTHY, component="test", message="ok"
-        )
+        module.health.return_value = HealthReport(status=HealthStatus.HEALTHY, component="test", message="ok")
 
         with patch.dict("sys.modules", {"psutil": _mock_psutil()}):
             monitor = SystemMonitor(redis_client=mock_redis, config=config)

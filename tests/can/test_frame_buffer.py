@@ -84,9 +84,9 @@ class TestCANFrameBuffer:
 
         # 驗證各信號值：使用 little-endian 64-bit 解讀
         frame_int = int.from_bytes(frame, byteorder="little")
-        assert (frame_int >> 0) & 0xFFFF == 1000   # power_target
-        assert (frame_int >> 16) & 0xF == 3         # mode
-        assert (frame_int >> 20) & 0x1 == 1         # start_stop
+        assert (frame_int >> 0) & 0xFFFF == 1000  # power_target
+        assert (frame_int >> 16) & 0xF == 3  # mode
+        assert (frame_int >> 20) & 0x1 == 1  # start_stop
 
     def test_multiple_can_ids(self):
         """多個 CAN ID 獨立管理"""
@@ -140,11 +140,11 @@ class TestCANFrameBuffer:
     def test_initial_data(self):
         """初始資料配置"""
         buf = CANFrameBuffer(
-            configs=[FrameBufferConfig(can_id=0x200, initial_data=b"\xFF" * 8)],
+            configs=[FrameBufferConfig(can_id=0x200, initial_data=b"\xff" * 8)],
             signals=[CANSignalDefinition(0x200, CANField("val", 0, 8, resolution=1.0))],
         )
         frame = buf.get_frame(0x200)
-        assert frame == b"\xFF" * 8
+        assert frame == b"\xff" * 8
 
     def test_thread_safety(self):
         """多線程同時寫入不 crash"""

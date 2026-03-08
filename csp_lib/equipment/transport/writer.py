@@ -67,7 +67,9 @@ class ValidatedWriter:
         Returns:
             寫入結果
         """
-        logger.debug(f"[ValidatedWriter] write 開始: point={point.name}, value={value}, type={type(value).__name__}, verify={verify}")
+        logger.debug(
+            f"[ValidatedWriter] write 開始: point={point.name}, value={value}, type={type(value).__name__}, verify={verify}"
+        )
 
         if point.validator and not point.validator.validate(value):
             msg = point.validator.get_error_message(value)

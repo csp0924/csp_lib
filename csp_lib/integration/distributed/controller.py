@@ -161,10 +161,7 @@ class DistributedController(AsyncLifecycleMixin):
 
         # 檢查設備離線狀態 → 觸發 system_alarm
         if self._config.system_alarm_on_device_offline and self._subscriber is not None:
-            has_offline = any(
-                not self._subscriber.device_online.get(did, False)
-                for did in self._config.all_device_ids
-            )
+            has_offline = any(not self._subscriber.device_online.get(did, False) for did in self._config.all_device_ids)
             alarm_key = self._system_controller.config.system_alarm_key
             ctx.extra[alarm_key] = has_offline
 

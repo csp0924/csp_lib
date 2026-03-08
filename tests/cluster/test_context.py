@@ -18,9 +18,11 @@ def _make_subscriber(device_states: dict) -> MagicMock:
 class TestVirtualContextBuilderDeviceMode:
     def test_single_device_mapping(self):
         """device_id 模式：從快取讀取設備值"""
-        sub = _make_subscriber({
-            "meter-1": {"active_power": 100.0, "voltage": 220.0},
-        })
+        sub = _make_subscriber(
+            {
+                "meter-1": {"active_power": 100.0, "voltage": 220.0},
+            }
+        )
         mappings = [
             ContextMapping(point_name="active_power", context_field="extra.meter_power", device_id="meter-1"),
         ]
@@ -45,9 +47,11 @@ class TestVirtualContextBuilderDeviceMode:
 
     def test_point_not_in_device_state_uses_default(self):
         """點位不在設備狀態中應使用預設值"""
-        sub = _make_subscriber({
-            "meter-1": {"voltage": 220.0},
-        })
+        sub = _make_subscriber(
+            {
+                "meter-1": {"voltage": 220.0},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="active_power",
@@ -62,9 +66,11 @@ class TestVirtualContextBuilderDeviceMode:
 
     def test_maps_to_context_field(self):
         """應正確設定 context 欄位"""
-        sub = _make_subscriber({
-            "pcs-1": {"soc": 75.0},
-        })
+        sub = _make_subscriber(
+            {
+                "pcs-1": {"soc": 75.0},
+            }
+        )
         mappings = [
             ContextMapping(point_name="soc", context_field="soc", device_id="pcs-1"),
         ]
@@ -74,9 +80,11 @@ class TestVirtualContextBuilderDeviceMode:
 
     def test_transform_applied(self):
         """應套用 transform 函式"""
-        sub = _make_subscriber({
-            "meter-1": {"active_power": 1000.0},
-        })
+        sub = _make_subscriber(
+            {
+                "meter-1": {"active_power": 1000.0},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="active_power",
@@ -91,9 +99,11 @@ class TestVirtualContextBuilderDeviceMode:
 
     def test_transform_failure_uses_default(self):
         """Transform 失敗應使用預設值"""
-        sub = _make_subscriber({
-            "meter-1": {"active_power": "invalid"},
-        })
+        sub = _make_subscriber(
+            {
+                "meter-1": {"active_power": "invalid"},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="active_power",
@@ -111,10 +121,12 @@ class TestVirtualContextBuilderDeviceMode:
 class TestVirtualContextBuilderTraitMode:
     def test_trait_aggregate_sum(self):
         """trait 模式：SUM 聚合"""
-        sub = _make_subscriber({
-            "pcs-1": {"p_target": 50.0},
-            "pcs-2": {"p_target": 30.0},
-        })
+        sub = _make_subscriber(
+            {
+                "pcs-1": {"p_target": 50.0},
+                "pcs-2": {"p_target": 30.0},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="p_target",
@@ -130,10 +142,12 @@ class TestVirtualContextBuilderTraitMode:
 
     def test_trait_aggregate_average(self):
         """trait 模式：AVERAGE 聚合"""
-        sub = _make_subscriber({
-            "pcs-1": {"soc": 60.0},
-            "pcs-2": {"soc": 80.0},
-        })
+        sub = _make_subscriber(
+            {
+                "pcs-1": {"soc": 60.0},
+                "pcs-2": {"soc": 80.0},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="soc",
@@ -164,10 +178,12 @@ class TestVirtualContextBuilderTraitMode:
 
     def test_trait_partial_data(self):
         """部分設備有值時應聚合可用資料"""
-        sub = _make_subscriber({
-            "pcs-1": {"soc": 60.0},
-            "pcs-2": {},  # soc not available
-        })
+        sub = _make_subscriber(
+            {
+                "pcs-1": {"soc": 60.0},
+                "pcs-2": {},  # soc not available
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="soc",
@@ -183,10 +199,12 @@ class TestVirtualContextBuilderTraitMode:
 
     def test_custom_aggregate(self):
         """應支援自訂聚合函式"""
-        sub = _make_subscriber({
-            "pcs-1": {"soc": 60.0},
-            "pcs-2": {"soc": 80.0},
-        })
+        sub = _make_subscriber(
+            {
+                "pcs-1": {"soc": 60.0},
+                "pcs-2": {"soc": 80.0},
+            }
+        )
         mappings = [
             ContextMapping(
                 point_name="soc",
@@ -222,10 +240,12 @@ class TestVirtualContextBuilderSystemBase:
 class TestVirtualContextBuilderMultipleMappings:
     def test_multiple_mappings(self):
         """多個映射應同時生效"""
-        sub = _make_subscriber({
-            "meter-1": {"active_power": 100.0},
-            "pcs-1": {"soc": 75.0},
-        })
+        sub = _make_subscriber(
+            {
+                "meter-1": {"active_power": 100.0},
+                "pcs-1": {"soc": 75.0},
+            }
+        )
         mappings = [
             ContextMapping(point_name="active_power", context_field="extra.meter_power", device_id="meter-1"),
             ContextMapping(point_name="soc", context_field="soc", device_id="pcs-1"),

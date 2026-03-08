@@ -176,9 +176,7 @@ class CommandRouter:
             return
         for device in devices:
             if device.is_protected:
-                logger.warning(
-                    f"Device '{device.device_id}' is protected (alarm), skipping capability auto write."
-                )
+                logger.warning(f"Device '{device.device_id}' is protected (alarm), skipping capability auto write.")
                 continue
             point_name = device.resolve_point(mapping.capability, mapping.slot)
             await self._safe_write(device, point_name, value)
@@ -248,9 +246,7 @@ class CommandRouter:
             try:
                 value = mapping.transform(value)
             except Exception:
-                logger.error(
-                    f"Transform failed for capability command field '{mapping.command_field}', skipping."
-                )
+                logger.error(f"Transform failed for capability command field '{mapping.command_field}', skipping.")
                 return
         point_name = device.resolve_point(mapping.capability, mapping.slot)
         await self._safe_write(device, point_name, value)

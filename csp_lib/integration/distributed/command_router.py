@@ -128,11 +128,13 @@ class RemoteCommandRouter:
 
     async def _publish_command(self, channel: str, device_id: str, point_name: str, value: Any) -> None:
         """發布指令到 Redis channel"""
-        payload = json.dumps({
-            "device_id": device_id,
-            "point_name": point_name,
-            "value": value,
-        })
+        payload = json.dumps(
+            {
+                "device_id": device_id,
+                "point_name": point_name,
+                "value": value,
+            }
+        )
         try:
             await self._redis.publish(channel, payload)
             logger.debug(f"Published command: {device_id}.{point_name} = {value} -> {channel}")

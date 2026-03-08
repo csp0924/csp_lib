@@ -92,13 +92,13 @@ def demo_configuration():
         etcd=etcd_config,
         namespace="site_bms",
         election_key="/csp/cluster/site_bms/election",
-        lease_ttl=10,                    # lease 存活時間（秒）
-        state_publish_interval=1.0,      # 狀態發佈間隔（秒）
-        state_ttl=30,                    # Redis 狀態 key TTL（秒）
-        failover_grace_period=2.0,       # 升格後等待設備產生資料的緩衝期（秒）
+        lease_ttl=10,  # lease 存活時間（秒）
+        state_publish_interval=1.0,  # 狀態發佈間隔（秒）
+        state_ttl=30,  # Redis 狀態 key TTL（秒）
+        failover_grace_period=2.0,  # 升格後等待設備產生資料的緩衝期（秒）
         device_ids=["pcs_01", "pcs_02", "bms_01"],  # 需同步的設備清單
-        max_keepalive_failures=3,        # keepalive 連續失敗上限（超過則自我隔離）
-        campaign_retry_delay=2.0,        # 競選失敗後重試延遲（秒）
+        max_keepalive_failures=3,  # keepalive 連續失敗上限（超過則自我隔離）
+        campaign_retry_delay=2.0,  # 競選失敗後重試延遲（秒）
     )
 
     print("\n  Instance A config:")

@@ -205,9 +205,7 @@ class TestBatcherDeduplication:
         ch = MockChannel("line")
         batcher = NotificationBatcher(
             channels=[ch],
-            config=BatchNotificationConfig(
-                flush_interval=60, batch_size_threshold=1000, deduplicate_by_key=False
-            ),
+            config=BatchNotificationConfig(flush_interval=60, batch_size_threshold=1000, deduplicate_by_key=False),
         )
         n1 = _make_notification(alarm_key="dev1:device_alarm:A")
         n2 = _make_notification(alarm_key="dev1:device_alarm:A")

@@ -314,9 +314,7 @@ class TestModbusRequestQueue:
 
             # Third queued item should fail
             with pytest.raises(ModbusQueueFullError):
-                await queue.submit(
-                    unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op
-                )
+                await queue.submit(unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op)
 
             gate.set()
             await f1

@@ -280,9 +280,7 @@ class TestDeviceFactoryCreateBatch:
     def test_create_batch_basic(self):
         """批次建立應建立正確數量的設備"""
         tpl = _make_template()
-        instances = [
-            DeviceConfig(device_id=f"dev_{i}", unit_id=i) for i in range(1, 4)
-        ]
+        instances = [DeviceConfig(device_id=f"dev_{i}", unit_id=i) for i in range(1, 4)]
 
         devices = DeviceFactory.create_batch(
             tpl,
@@ -299,9 +297,7 @@ class TestDeviceFactoryCreateBatch:
         """批次建立各自偏移應正確"""
         rp = ReadPoint(name="voltage", address=100, data_type=UInt16())
         tpl = EquipmentTemplate(model="TEST", always_points=(rp,))
-        instances = [
-            DeviceConfig(device_id=f"dev_{i}", unit_id=1) for i in range(3)
-        ]
+        instances = [DeviceConfig(device_id=f"dev_{i}", unit_id=1) for i in range(3)]
 
         devices = DeviceFactory.create_batch(
             tpl,

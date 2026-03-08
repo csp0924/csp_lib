@@ -16,9 +16,11 @@ class TestGridControllerProtocol:
     def test_is_runtime_checkable(self):
         """Protocol 應標記為 @runtime_checkable"""
         # runtime_checkable protocols support isinstance checks
-        assert hasattr(GridControllerProtocol, "__protocol_attrs__") or hasattr(
-            GridControllerProtocol, "__callable_proto_members_only__"
-        ) or callable(getattr(GridControllerProtocol, "_is_runtime_protocol", None))
+        assert (
+            hasattr(GridControllerProtocol, "__protocol_attrs__")
+            or hasattr(GridControllerProtocol, "__callable_proto_members_only__")
+            or callable(getattr(GridControllerProtocol, "_is_runtime_protocol", None))
+        )
 
         # The definitive test: isinstance() does not raise TypeError
         class Dummy:

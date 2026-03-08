@@ -220,9 +220,7 @@ class SystemController(AsyncLifecycleMixin):
                 ModePriority.PROTECTION + 1,
                 "Auto stop on system alarm",
             )
-            self.register_event_override(
-                AlarmStopOverride(name=_AUTO_STOP_MODE, alarm_key=config.system_alarm_key)
-            )
+            self.register_event_override(AlarmStopOverride(name=_AUTO_STOP_MODE, alarm_key=config.system_alarm_key))
 
     # ---- 模式管理（委派 ModeManager）----
 
@@ -234,8 +232,7 @@ class SystemController(AsyncLifecycleMixin):
                 devices = self._registry.get_devices_with_capability(cap)
                 if not devices:
                     logger.warning(
-                        f"Strategy '{strategy}' requires capability '{cap.name}' "
-                        f"but no registered device has it."
+                        f"Strategy '{strategy}' requires capability '{cap.name}' but no registered device has it."
                     )
         self._mode_manager.register(name, strategy, priority, description)
 

@@ -148,9 +148,7 @@ class AsyncCANDevice(AlarmMixin):
         self._aggregator_pipeline = aggregator_pipeline
 
         # 能力綁定
-        self._capability_bindings: dict[str, CapabilityBinding] = {
-            b.capability.name: b for b in capability_bindings
-        }
+        self._capability_bindings: dict[str, CapabilityBinding] = {b.capability.name: b for b in capability_bindings}
 
         # 事件
         self._emitter = DeviceEventEmitter()

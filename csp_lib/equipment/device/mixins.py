@@ -111,7 +111,9 @@ class WriteMixin:
 
         logger.debug(f"[{device_id}] write 點位已找到: {name}, address={point.address}, fc={point.function_code}")
         result = await self._writer.write(point=point, value=value, verify=verify)
-        logger.debug(f"[{device_id}] write 結果: point={name}, status={result.status.value}, error={result.error_message or 'none'}")
+        logger.debug(
+            f"[{device_id}] write 結果: point={name}, status={result.status.value}, error={result.error_message or 'none'}"
+        )
 
         if result.status == WriteStatus.SUCCESS:
             self._emitter.emit(
@@ -174,7 +176,9 @@ class WriteMixin:
             # 若方法回傳 WriteResult，直接使用其狀態
             if isinstance(result, WriteResult):
                 if result.status != WriteStatus.SUCCESS:
-                    logger.error(f"[{device_id}] execute_action 失敗: action={action}, status={result.status.value}, error={result.error_message}")
+                    logger.error(
+                        f"[{device_id}] execute_action 失敗: action={action}, status={result.status.value}, error={result.error_message}"
+                    )
                 else:
                     logger.info(f"[{device_id}] execute_action 成功: action={action}")
                 return result
