@@ -1,4 +1,5 @@
-from .base import AsyncModbusDevice
+from .base import AsyncModbusDevice, PointInfo, ReconfigureSpec
+from .can_device import AsyncCANDevice, CANRxFrameDefinition
 from .capability import (
     ACTIVE_POWER_CONTROL,
     FREQUENCY_MEASURABLE,
@@ -19,8 +20,11 @@ from .events import (
     EVENT_ALARM_TRIGGERED,
     EVENT_CONNECTED,
     EVENT_DISCONNECTED,
+    EVENT_POINT_TOGGLED,
     EVENT_READ_COMPLETE,
     EVENT_READ_ERROR,
+    EVENT_RECONFIGURED,
+    EVENT_RESTARTED,
     EVENT_VALUE_CHANGE,
     EVENT_WRITE_COMPLETE,
     EVENT_WRITE_ERROR,
@@ -29,13 +33,17 @@ from .events import (
     DeviceAlarmPayload,
     DeviceEventEmitter,
     DisconnectPayload,
+    PointToggledPayload,
     ReadCompletePayload,
     ReadErrorPayload,
+    ReconfiguredPayload,
+    RestartedPayload,
     ValueChangePayload,
     WriteCompletePayload,
     WriteErrorPayload,
 )
 from .mixins import AlarmMixin, WriteMixin
+from .protocol import DeviceProtocol
 
 __all__ = [
     # Config
@@ -54,6 +62,12 @@ __all__ = [
     "SOC_READABLE",
     # Device
     "AsyncModbusDevice",
+    "AsyncCANDevice",
+    "CANRxFrameDefinition",
+    "PointInfo",
+    "ReconfigureSpec",
+    # Protocol
+    "DeviceProtocol",
     # Mixins
     "AlarmMixin",
     "WriteMixin",
@@ -71,6 +85,9 @@ __all__ = [
     "WriteCompletePayload",
     "WriteErrorPayload",
     "DeviceAlarmPayload",
+    "ReconfiguredPayload",
+    "RestartedPayload",
+    "PointToggledPayload",
     # Event Names
     "EVENT_CONNECTED",
     "EVENT_DISCONNECTED",
@@ -81,4 +98,7 @@ __all__ = [
     "EVENT_ALARM_CLEARED",
     "EVENT_WRITE_COMPLETE",
     "EVENT_WRITE_ERROR",
+    "EVENT_RECONFIGURED",
+    "EVENT_RESTARTED",
+    "EVENT_POINT_TOGGLED",
 ]

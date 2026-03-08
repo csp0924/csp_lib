@@ -38,6 +38,15 @@ WHERE contains(tags, "type/class") AND contains(tags, "layer/modbus")
 SORT file.name ASC
 ```
 
+### CAN（v0.4.0）
+
+```dataview
+TABLE source AS "來源模組"
+FROM ""
+WHERE contains(tags, "type/class") AND contains(tags, "layer/can")
+SORT file.name ASC
+```
+
 ### Equipment
 
 ```dataview

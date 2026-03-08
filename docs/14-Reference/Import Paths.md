@@ -32,6 +32,32 @@ from csp_lib.core import (
     HealthStatus,
     HealthReport,
     HealthCheckable,
+    # Resilience (v0.4.0)
+    CircuitState,
+    CircuitBreaker,
+    RetryPolicy,
+)
+```
+
+---
+
+## CAN (`csp_lib.can`)
+
+需安裝：`pip install csp0924_lib[can]`
+
+```python
+from csp_lib.can import (
+    # 配置
+    CANBusConfig,
+    CANFrame,
+    # 客戶端
+    AsyncCANClientBase,
+    PythonCANClient,
+    # 例外
+    CANError,
+    CANConnectionError,
+    CANTimeoutError,
+    CANSendError,
 )
 ```
 
@@ -55,6 +81,11 @@ from csp_lib.modbus import (
     ModbusTcpConfig, ModbusRtuConfig,
     # 編解碼
     ModbusCodec,
+    # 請求佇列（v0.4.0）
+    RequestQueueConfig,
+    RequestPriority,
+    CircuitBreakerState,
+    ModbusRequestQueue,
     # 客戶端
     AsyncModbusClientBase,
     PymodbusTcpClient,
@@ -62,6 +93,7 @@ from csp_lib.modbus import (
     SharedPymodbusTcpClient,
     # 例外
     ModbusError, ModbusEncodeError, ModbusDecodeError, ModbusConfigError,
+    ModbusCircuitBreakerError, ModbusQueueFullError,
 )
 ```
 
@@ -86,9 +118,58 @@ from csp_lib.equipment.core import (
 
 ```python
 from csp_lib.equipment.device import (
+    # Modbus 設備
     AsyncModbusDevice,
+    # CAN 設備（v0.4.0）
+    AsyncCANDevice,
+    CANRxFrameDefinition,
+    # 協定（v0.4.0）
+    DeviceProtocol,
+    # 配置
     DeviceConfig,
+    # Capability（v0.4.0 能力綁定系統）
+    Capability,
+    CapabilityBinding,
+    HEARTBEAT,
+    ACTIVE_POWER_CONTROL,
+    REACTIVE_POWER_CONTROL,
+    SWITCHABLE,
+    LOAD_SHEDDABLE,
+    MEASURABLE,
+    FREQUENCY_MEASURABLE,
+    VOLTAGE_MEASURABLE,
+    SOC_READABLE,
+    # Mixins
+    AlarmMixin,
+    WriteMixin,
+    # EventBridge（v0.4.0）
+    AggregateCondition,
+    EventBridge,
+    # 事件
     DeviceEventEmitter,
+    AsyncHandler,
+    ConnectedPayload,
+    ValueChangePayload,
+    DisconnectPayload,
+    ReadCompletePayload,
+    ReadErrorPayload,
+    WriteCompletePayload,
+    WriteErrorPayload,
+    DeviceAlarmPayload,
+    # 事件（v0.4.0 新增）
+    ReconfiguredPayload,
+    RestartedPayload,
+    PointToggledPayload,
+    # 動態點位管理（v0.4.0）
+    PointInfo,
+    ReconfigureSpec,
+    # 事件常數
+    EVENT_CONNECTED, EVENT_DISCONNECTED,
+    EVENT_READ_COMPLETE, EVENT_READ_ERROR,
+    EVENT_VALUE_CHANGE,
+    EVENT_ALARM_TRIGGERED, EVENT_ALARM_CLEARED,
+    EVENT_WRITE_COMPLETE, EVENT_WRITE_ERROR,
+    EVENT_RECONFIGURED, EVENT_RESTARTED, EVENT_POINT_TOGGLED,
 )
 ```
 
@@ -140,7 +221,7 @@ from csp_lib.controller import (
     Command, SystemBase, StrategyContext,
     Strategy, ExecutionConfig, ExecutionMode, ConfigMixin,
     # 執行器
-    StrategyExecutor,
+    StrategyExecutor, ComputeOffloader,
     # 服務
     PVDataService,
     # 協議
@@ -152,12 +233,22 @@ from csp_lib.controller import (
     FPStrategy, FPConfig,
     IslandModeStrategy, IslandModeConfig, RelayProtocol,
     BypassStrategy, StopStrategy, ScheduleStrategy,
+    # 負載卸載策略（v0.4.0）
+    LoadSheddingStrategy, LoadSheddingConfig,
+    LoadCircuitProtocol, ShedCondition,
+    ShedStage, ThresholdCondition, RemainingTimeCondition,
     # 系統管理
-    ModeManager, ModeDefinition, ModePriority,
+    ModeManager, ModeDefinition, ModePriority, SwitchSource,
     ProtectionGuard, ProtectionRule, ProtectionResult,
     SOCProtection, SOCProtectionConfig,
     ReversePowerProtection, SystemAlarmProtection,
     CascadingStrategy, CapacityConfig,
+    # 事件驅動覆蓋（v0.4.0）
+    EventDrivenOverride, AlarmStopOverride, ContextKeyOverride,
+    # 排程模式控制協定（v0.4.0）
+    ScheduleModeController,
+    # 策略發現（v0.4.0）
+    ENTRY_POINT_GROUP, StrategyDescriptor, discover_strategies,
 )
 ```
 
@@ -168,20 +259,29 @@ from csp_lib.controller import (
 ```python
 from csp_lib.manager import (
     # 基底
+    AsyncRepository,
     DeviceEventSubscriber,
     # 告警
-    AlarmPersistenceManager, AlarmRepository, MongoAlarmRepository,
+    AlarmPersistenceManager, AlarmPersistenceConfig,
+    AlarmRepository, MongoAlarmRepository,
     AlarmRecord, AlarmStatus, AlarmType,
     # 命令
-    WriteCommandManager, CommandRepository, MongoCommandRepository,
+    WriteCommandManager,
+    ActionCommand, CommandAdapterConfig,
+    CommandRepository, MongoCommandRepository,
     WriteCommand, CommandRecord, CommandSource, CommandStatus,
-    RedisCommandAdapter,
+    CommandResult, RedisCommandAdapter,
     # 資料
     DataUploadManager,
     # 設備
     DeviceManager, DeviceGroup,
+    # 排程（v0.4.0）
+    ScheduleService, ScheduleServiceConfig,
+    ScheduleRepository, MongoScheduleRepository,
+    ScheduleRule, ScheduleType,
+    StrategyFactory, StrategyType,
     # 狀態
-    StateSyncManager,
+    StateSyncManager, StateSyncConfig,
     # 統一
     UnifiedDeviceManager, UnifiedConfig,
 )
@@ -196,16 +296,35 @@ from csp_lib.integration import (
     # 註冊
     DeviceRegistry,
     # Schema
-    ContextMapping, CommandMapping, DataFeedMapping, AggregateFunc,
+    AggregateFunc,
+    ContextMapping, CommandMapping, DataFeedMapping,
+    HeartbeatMapping, HeartbeatMode,
+    CapabilityContextMapping, CapabilityCommandMapping,
     # 建構器
-    ContextBuilder, CommandRouter, DeviceDataFeed,
+    ContextBuilder, apply_builtin_aggregate,
+    CommandRouter,
+    DeviceDataFeed,
+    # 心跳服務（v0.4.0）
+    HeartbeatService,
+    # 功率分配器（v0.4.0）
+    DeviceSnapshot,
+    PowerDistributor,
+    EqualDistributor,
+    ProportionalDistributor,
+    SOCBalancingDistributor,
     # 控制迴圈
     GridControlLoop, GridControlLoopConfig,
     # 系統控制器
     SystemController, SystemControllerConfig,
+    # 群組管理
+    GroupDefinition, GroupControllerManager,
     # 編排器
     SystemCommandOrchestrator, SystemCommand, CommandStep,
     StepCheck, StepResult, SystemCommandResult,
+    # 分散式控制（v0.4.0）
+    DistributedConfig, RemoteSiteConfig,
+    DeviceStateSubscriber, RemoteCommandRouter,
+    DistributedController, RemoteSiteRunner,
 )
 ```
 

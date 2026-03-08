@@ -6,6 +6,8 @@ csp_lib Example 09: 進階策略與保護規則
   - Section B: PVSmoothStrategy 光伏平滑策略（模擬 PV 資料）
   - Section C: FPStrategy 頻率-功率響應曲線
   - Section D: ModeManager 基礎模式切換與覆蓋堆疊
+  - Section E: LoadSheddingStrategy 階段性負載卸載（v0.4.0 新增）
+  - Section F: EventDrivenOverride 事件驅動自動 Override（v0.4.0 新增）
 
 Run: uv run python examples/09_advanced_strategies.py
 """
@@ -414,6 +416,192 @@ async def demo_mode_manager():
 
 
 # ============================================================
+# Section E: LoadSheddingStrategy（階段性負載卸載）
+# ============================================================
+
+
+class MockCircuit:
+    """
+    Mock load circuit implementing LoadCircuitProtocol.
+
+    In production, this would write to a breaker/relay via Modbus or CAN.
+    """
+
+    def __init__(self, name: str) -> None:
+        self._name = name
+        self._is_shed = False
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def is_shed(self) -> bool:
+        return self._is_shed
+
+    async def shed(self) -> None:
+        self._is_shed = True
+        print(f"    [Circuit] '{self._name}' SHED (disconnected)")
+
+    async def restore(self) -> None:
+        self._is_shed = False
+        print(f"    [Circuit] '{self._name}' RESTORED (connected)")
+
+
+async def demo_load_shedding():
+    """
+    Demonstrates LoadSheddingStrategy: multi-stage load shedding based on
+    context conditions (SOC threshold, remaining time, etc.).
+
+    Shedding order: low priority first (priority=0 before priority=1)
+    Restore order:  high priority first (priority=1 before priority=0)
+    """
+    print("\n" + "=" * 60)
+    print("Section E: LoadSheddingStrategy")
+    print("=" * 60)
+
+    from csp_lib.controller.strategies.load_shedding import (
+        LoadSheddingConfig,
+        LoadSheddingStrategy,
+        ShedStage,
+        ThresholdCondition,
+    )
+
+    # Define shedding conditions
+    low_soc_condition = ThresholdCondition(
+        context_key="soc",
+        shed_below=25.0,    # Shed when SOC < 25%
+        restore_above=35.0, # Restore when SOC > 35%
+    )
+
+    # Define load circuits
+    ac_unit = MockCircuit("air_conditioner")
+    water_heater = MockCircuit("water_heater")
+    ev_charger = MockCircuit("ev_charger")
+
+    config = LoadSheddingConfig(
+        stages=[
+            ShedStage(
+                name="stage1_non_critical",
+                circuits=[ac_unit, water_heater],
+                condition=low_soc_condition,
+                priority=0,           # Shed first (lowest priority)
+                min_hold_seconds=0.0, # No hold time for demo
+            ),
+            ShedStage(
+                name="stage2_semi_critical",
+                circuits=[ev_charger],
+                condition=ThresholdCondition(context_key="soc", shed_below=15.0, restore_above=20.0),
+                priority=1,           # Shed second (higher priority)
+                min_hold_seconds=0.0,
+            ),
+        ],
+        evaluation_interval=1,
+        restore_delay=0.1,            # Short delay for demo
+        auto_restore_on_deactivate=True,
+    )
+
+    strategy = LoadSheddingStrategy(config)
+
+    # --- Activate and simulate low SOC ---
+    await strategy.on_activate()
+
+    print("\n[1] Normal SOC=50% (no shedding)")
+    ctx = StrategyContext(soc=50.0, extra={"soc": 50.0})
+    strategy.execute(ctx)
+    await asyncio.sleep(0.2)
+    print(f"    Shed stages: {strategy.shed_stage_names}")
+
+    print("\n[2] SOC drops to 20% → stage1 shed trigger")
+    ctx = StrategyContext(soc=20.0, extra={"soc": 20.0})
+    strategy.execute(ctx)
+    await asyncio.sleep(0.5)  # Wait for background action loop
+    print(f"    Shed stages: {strategy.shed_stage_names}")
+    print(f"    AC shed: {ac_unit.is_shed}, Water heater shed: {water_heater.is_shed}")
+
+    print("\n[3] SOC drops to 10% → stage2 shed trigger")
+    ctx = StrategyContext(soc=10.0, extra={"soc": 10.0})
+    strategy.execute(ctx)
+    await asyncio.sleep(0.5)
+    print(f"    Shed stages: {strategy.shed_stage_names}")
+    print(f"    EV charger shed: {ev_charger.is_shed}")
+
+    print("\n[4] SOC recovers to 40% → staged restore (high priority first)")
+    ctx = StrategyContext(soc=40.0, extra={"soc": 40.0})
+    strategy.execute(ctx)
+    await asyncio.sleep(0.5)
+
+    print("\n[5] on_deactivate → auto-restore all remaining circuits")
+    await strategy.on_deactivate()
+    print(f"    AC shed: {ac_unit.is_shed}, EV shed: {ev_charger.is_shed}")
+
+
+# ============================================================
+# Section F: EventDrivenOverride（事件驅動自動 Override）
+# ============================================================
+
+
+async def demo_event_driven_override():
+    """
+    Demonstrates EventDrivenOverride protocol and built-in implementations:
+      - AlarmStopOverride: auto-stop on system alarm flag
+      - ContextKeyOverride: generic key-based trigger
+
+    SystemController evaluates all registered EventDrivenOverride instances
+    on every execution cycle and automatically push/pop the corresponding mode.
+    """
+    print("\n" + "=" * 60)
+    print("Section F: EventDrivenOverride")
+    print("=" * 60)
+
+    from csp_lib.controller.system.event_override import (
+        AlarmStopOverride,
+        ContextKeyOverride,
+    )
+
+    # --- AlarmStopOverride ---
+    print("\n[1] AlarmStopOverride: triggers on context.extra['system_alarm'] = True")
+    alarm_override = AlarmStopOverride(name="__auto_stop__", alarm_key="system_alarm")
+    print(f"    name={alarm_override.name}, cooldown={alarm_override.cooldown_seconds}s")
+
+    ctx_no_alarm = StrategyContext(soc=60.0, extra={"system_alarm": False})
+    ctx_alarm = StrategyContext(soc=60.0, extra={"system_alarm": True})
+    print(f"    should_activate(no alarm): {alarm_override.should_activate(ctx_no_alarm)}")
+    print(f"    should_activate(alarm):    {alarm_override.should_activate(ctx_alarm)}")
+
+    # --- ContextKeyOverride ---
+    print("\n[2] ContextKeyOverride: ACB trip → island mode")
+    acb_override = ContextKeyOverride(
+        name="island",
+        context_key="acb_tripped",
+        activate_when=lambda v: v is True,
+        cooldown_seconds=5.0,
+    )
+    print(f"    name={acb_override.name}, cooldown={acb_override.cooldown_seconds}s")
+
+    ctx_normal = StrategyContext(soc=60.0, extra={"acb_tripped": False})
+    ctx_tripped = StrategyContext(soc=60.0, extra={"acb_tripped": True})
+    print(f"    should_activate(normal):  {acb_override.should_activate(ctx_normal)}")
+    print(f"    should_activate(tripped): {acb_override.should_activate(ctx_tripped)}")
+
+    # --- Frequency deviation override ---
+    print("\n[3] ContextKeyOverride: frequency deviation → FP emergency mode")
+    freq_override = ContextKeyOverride(
+        name="fp_emergency",
+        context_key="frequency",
+        activate_when=lambda f: abs(f - 60.0) > 0.5,
+        cooldown_seconds=10.0,
+    )
+    for freq in [60.0, 60.3, 60.55, 59.45, 59.9]:
+        activated = freq_override.should_activate(StrategyContext(soc=60.0, extra={"frequency": freq}))
+        print(f"    freq={freq:.2f}Hz → activate={activated}")
+
+    print("\n  Note: In production, register overrides via:")
+    print("    controller.register_event_override(acb_override)")
+    print("  SystemController auto-pushes/pops the named mode on each cycle.")
+
+
+# ============================================================
 # 執行所有段落
 # ============================================================
 
@@ -423,6 +611,8 @@ async def main():
     await demo_pv_smooth()
     await demo_fp_strategy()
     await demo_mode_manager()
+    await demo_load_shedding()
+    await demo_event_driven_override()
 
 
 if __name__ == "__main__":

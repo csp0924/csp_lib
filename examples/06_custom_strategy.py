@@ -8,6 +8,8 @@ Demonstrates:
   - on_activate() / on_deactivate() lifecycle hooks for state reset
   - Triggered (event-driven) strategy for load shedding
   - Wiring custom strategies into StrategyExecutor
+  - required_capabilities: declaring device capability requirements (v0.4.0)
+  - discover_strategies: plugin discovery via entry_points (v0.4.0)
 
 Scenario A (PF Adjustment):
   A PF correction strategy that uses PID control to maintain a target
@@ -17,6 +19,10 @@ Scenario A (PF Adjustment):
 Scenario B (Load Shedding):
   A trigger-based strategy that sheds load to a target power level.
   Only runs when explicitly triggered (e.g., by a demand response signal).
+
+Scenario C (required_capabilities + discover_strategies):
+  Demonstrates declaring capability requirements on a custom strategy
+  and using discover_strategies() to list installed strategy plugins.
 """
 
 import asyncio
@@ -317,10 +323,80 @@ async def example_config_from_dict():
     print(f"  to_dict(): {config.to_dict()}")
 
 
+async def example_required_capabilities():
+    """
+    required_capabilities: declare what device capabilities a strategy needs.
+
+    SystemController.register_mode() validates that at least one registered
+    device has each required capability. If none found, a warning is logged
+    (but registration still succeeds — strategies are not blocked).
+
+    discover_strategies(): scan installed entry_points for strategy plugins.
+    Third-party packages register strategies via pyproject.toml:
+        [project.entry-points."csp_lib.strategies"]
+        my_pq = "my_package.strategies:CustomPQStrategy"
+    """
+    print("\n=== required_capabilities + discover_strategies ===\n")
+
+    from csp_lib.controller.core import (
+        Command,
+        ExecutionConfig,
+        ExecutionMode,
+        Strategy,
+        StrategyContext,
+    )
+    from csp_lib.controller.discovery import ENTRY_POINT_GROUP, discover_strategies
+    from csp_lib.equipment.device.capability import Capability
+
+    # Define capabilities that this strategy requires
+    SOC_CAP = Capability("soc_readable", read_slots=("soc",))
+    POWER_CAP = Capability("power_writable", write_slots=("p_target",))
+
+    class CapabilityAwareStrategy(Strategy):
+        """
+        A custom strategy that declares required device capabilities.
+
+        SystemController will warn if no registered device has these capabilities.
+        """
+
+        @property
+        def required_capabilities(self) -> tuple[Capability, ...]:
+            """Declare capabilities needed for this strategy to function."""
+            return (SOC_CAP, POWER_CAP)
+
+        @property
+        def execution_config(self) -> ExecutionConfig:
+            return ExecutionConfig(mode=ExecutionMode.PERIODIC, interval_seconds=1)
+
+        def execute(self, context: StrategyContext) -> Command:
+            # With capability mappings, context.soc is auto-populated
+            soc = context.soc
+            return Command(p_target=500.0 if soc > 20 else 0.0)
+
+    strategy = CapabilityAwareStrategy()
+    print(f"  Strategy: {strategy}")
+    print(f"  Required capabilities: {[c.name for c in strategy.required_capabilities]}")
+
+    # discover_strategies() scans installed entry_points
+    # In a fresh install, no external plugins will be found.
+    descriptors = discover_strategies(group=ENTRY_POINT_GROUP)
+    print(f"\n  Installed strategy plugins (group='{ENTRY_POINT_GROUP}'):")
+    if descriptors:
+        for desc in descriptors:
+            print(f"    - {desc.name}: {desc.strategy_class.__name__} ({desc.description})")
+    else:
+        print("    (none installed — install a package that registers csp_lib.strategies)")
+
+    print("\n  To publish your own strategy plugin, add to your pyproject.toml:")
+    print("    [project.entry-points.\"csp_lib.strategies\"]")
+    print("    my_strategy = \"my_package.strategies:MyStrategy\"")
+
+
 async def main():
     await example_pf_pid()
     await example_load_shedding()
     await example_config_from_dict()
+    await example_required_capabilities()
 
 
 if __name__ == "__main__":

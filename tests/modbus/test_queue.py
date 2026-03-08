@@ -105,7 +105,7 @@ class TestUnitCircuitBreaker:
         cb.record_failure()
         assert cb.state == CircuitBreakerState.OPEN
 
-        with patch("csp_lib.modbus.clients.queue.time") as mock_time:
+        with patch("csp_lib.core.resilience.time") as mock_time:
             # Simulate cooldown elapsed
             mock_time.monotonic.return_value = time.monotonic() + 1.0
             assert cb.state == CircuitBreakerState.HALF_OPEN
@@ -116,7 +116,7 @@ class TestUnitCircuitBreaker:
         cb.record_failure()
         assert cb.state == CircuitBreakerState.OPEN
 
-        with patch("csp_lib.modbus.clients.queue.time") as mock_time:
+        with patch("csp_lib.core.resilience.time") as mock_time:
             # Simulate cooldown elapsed → HALF_OPEN
             mock_time.monotonic.return_value = time.monotonic() + 200.0
             assert cb.state == CircuitBreakerState.HALF_OPEN
@@ -129,7 +129,7 @@ class TestUnitCircuitBreaker:
         cb.record_failure()
         assert cb.state == CircuitBreakerState.OPEN
 
-        with patch("csp_lib.modbus.clients.queue.time") as mock_time:
+        with patch("csp_lib.core.resilience.time") as mock_time:
             # Simulate cooldown elapsed → HALF_OPEN
             mock_time.monotonic.return_value = time.monotonic() + 200.0
             assert cb.state == CircuitBreakerState.HALF_OPEN

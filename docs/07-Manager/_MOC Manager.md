@@ -41,6 +41,12 @@ Manager 模組建構在 [[_MOC Equipment|Equipment]] 與 [[_MOC Integration|Inte
 |------|------|------|
 | [[UnifiedDeviceManager]] | class | 整合所有 Manager 的統一入口 |
 
+### 排程服務（v0.4.0 新增）
+
+| 頁面 | 類型 | 說明 |
+|------|------|------|
+| [[ScheduleService]] | class | 週期輪詢排程規則並透過 [[ScheduleModeController]] 驅動策略切換 |
+
 ## 相關模組
 
 - 上游：[[_MOC Equipment]]、[[_MOC Integration]]

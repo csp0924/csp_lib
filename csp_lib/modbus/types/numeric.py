@@ -5,7 +5,9 @@
 # 支援類型：
 #   - Int16 / UInt16: 16-bit 有號/無號整數 (1 暫存器)
 #   - Int32 / UInt32: 32-bit 有號/無號整數 (2 暫存器)
+#   - Int64 / UInt64: 64-bit 有號/無號整數 (4 暫存器)
 #   - Float32: IEEE 754 單精度浮點數 (2 暫存器)
+#   - Float64: IEEE 754 雙精度浮點數 (4 暫存器)
 
 from __future__ import annotations
 
@@ -13,6 +15,7 @@ import struct
 
 from ..enums import ByteOrder, RegisterOrder
 from ..exceptions import ModbusDecodeError, ModbusEncodeError
+from ._register_helpers import assemble_from_registers, split_to_registers
 from .base import ModbusDataType
 
 
@@ -94,7 +97,89 @@ class UInt16(ModbusDataType):
         return registers[0]
 
 
-class Int32(ModbusDataType):
+class _MultiRegisterInt(ModbusDataType):
+    """多暫存器整數型別內部基類"""
+
+    _struct_format: str
+    _register_count: int
+    _type_name: str
+    _min_value: int
+    _max_value: int
+
+    @property
+    def register_count(self) -> int:
+        return self._register_count
+
+    def encode(
+        self,
+        value: int,
+        byte_order: ByteOrder,
+        register_order: RegisterOrder,
+    ) -> list[int]:
+        if not isinstance(value, int):
+            raise ModbusEncodeError(f"{self._type_name} 需要整數，收到: {type(value).__name__}")
+        if not self._min_value <= value <= self._max_value:
+            raise ModbusEncodeError(
+                f"{self._type_name} 範圍為 {self._min_value}~{self._max_value}，收到: {value}"
+            )
+
+        packed = struct.pack(f"{byte_order.value}{self._struct_format}", value)
+        return split_to_registers(packed, self._register_count, byte_order, register_order)
+
+    def decode(
+        self,
+        registers: list[int],
+        byte_order: ByteOrder,
+        register_order: RegisterOrder,
+    ) -> int:
+        if len(registers) < self._register_count:
+            raise ModbusDecodeError(
+                f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}"
+            )
+
+        packed = assemble_from_registers(registers, self._register_count, byte_order, register_order)
+        return struct.unpack(f"{byte_order.value}{self._struct_format}", packed)[0]
+
+
+class _MultiRegisterFloat(ModbusDataType):
+    """多暫存器浮點型別內部基類"""
+
+    _struct_format: str
+    _register_count: int
+    _type_name: str
+
+    @property
+    def register_count(self) -> int:
+        return self._register_count
+
+    def encode(
+        self,
+        value: float,
+        byte_order: ByteOrder,
+        register_order: RegisterOrder,
+    ) -> list[int]:
+        if not isinstance(value, (int, float)):
+            raise ModbusEncodeError(f"{self._type_name} 需要數值，收到: {type(value).__name__}")
+
+        packed = struct.pack(f"{byte_order.value}{self._struct_format}", float(value))
+        return split_to_registers(packed, self._register_count, byte_order, register_order)
+
+    def decode(
+        self,
+        registers: list[int],
+        byte_order: ByteOrder,
+        register_order: RegisterOrder,
+    ) -> float:
+        if len(registers) < self._register_count:
+            raise ModbusDecodeError(
+                f"{self._type_name} 需要 {self._register_count} 個暫存器，收到: {len(registers)}"
+            )
+
+        packed = assemble_from_registers(registers, self._register_count, byte_order, register_order)
+        return struct.unpack(f"{byte_order.value}{self._struct_format}", packed)[0]
+
+
+class Int32(_MultiRegisterInt):
     """
     32-bit 有號整數
 
@@ -102,52 +187,14 @@ class Int32(ModbusDataType):
     暫存器數: 2
     """
 
-    @property
-    def register_count(self) -> int:
-        return 2
-
-    def encode(
-        self,
-        value: int,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, int):
-            raise ModbusEncodeError(f"Int32 需要整數，收到: {type(value).__name__}")
-        if not -2147483648 <= value <= 2147483647:
-            raise ModbusEncodeError(f"Int32 範圍為 -2147483648~2147483647，收到: {value}")
-
-        # 編碼為 4 bytes
-        packed = struct.pack(f"{byte_order.value}i", value)
-
-        # 分割為兩個 16-bit 暫存器
-        high = struct.unpack(f"{byte_order.value}H", packed[0:2])[0]
-        low = struct.unpack(f"{byte_order.value}H", packed[2:4])[0]
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            return [high, low]
-        return [low, high]
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> int:
-        if len(registers) < 2:
-            raise ModbusDecodeError(f"Int32 需要 2 個暫存器，收到: {len(registers)}")
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            high, low = registers[0], registers[1]
-        else:
-            low, high = registers[0], registers[1]
-
-        # 組合為 4 bytes
-        packed = struct.pack(f"{byte_order.value}HH", high, low)
-        return struct.unpack(f"{byte_order.value}i", packed)[0]
+    _struct_format = "i"
+    _register_count = 2
+    _type_name = "Int32"
+    _min_value = -2147483648
+    _max_value = 2147483647
 
 
-class UInt32(ModbusDataType):
+class UInt32(_MultiRegisterInt):
     """
     32-bit 無號整數
 
@@ -155,52 +202,14 @@ class UInt32(ModbusDataType):
     暫存器數: 2
     """
 
-    @property
-    def register_count(self) -> int:
-        return 2
-
-    def encode(
-        self,
-        value: int,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, int):
-            raise ModbusEncodeError(f"UInt32 需要整數，收到: {type(value).__name__}")
-        if not 0 <= value <= 4294967295:
-            raise ModbusEncodeError(f"UInt32 範圍為 0~4294967295，收到: {value}")
-
-        # 編碼為 4 bytes
-        packed = struct.pack(f"{byte_order.value}I", value)
-
-        # 分割為兩個 16-bit 暫存器
-        high = struct.unpack(f"{byte_order.value}H", packed[0:2])[0]
-        low = struct.unpack(f"{byte_order.value}H", packed[2:4])[0]
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            return [high, low]
-        return [low, high]
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> int:
-        if len(registers) < 2:
-            raise ModbusDecodeError(f"UInt32 需要 2 個暫存器，收到: {len(registers)}")
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            high, low = registers[0], registers[1]
-        else:
-            low, high = registers[0], registers[1]
-
-        # 組合為 4 bytes
-        packed = struct.pack(f"{byte_order.value}HH", high, low)
-        return struct.unpack(f"{byte_order.value}I", packed)[0]
+    _struct_format = "I"
+    _register_count = 2
+    _type_name = "UInt32"
+    _min_value = 0
+    _max_value = 4294967295
 
 
-class UInt64(ModbusDataType):
+class UInt64(_MultiRegisterInt):
     """
     64-bit 無號整數
 
@@ -208,55 +217,14 @@ class UInt64(ModbusDataType):
     暫存器數: 4
     """
 
-    @property
-    def register_count(self) -> int:
-        return 4
-
-    def encode(
-        self,
-        value: int,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, int):
-            raise ModbusEncodeError(f"UInt64 需要整數，收到: {type(value).__name__}")
-        if not 0 <= value <= 18446744073709551615:
-            raise ModbusEncodeError(f"UInt64 範圍為 0~18446744073709551615，收到: {value}")
-
-        # 編碼為 8 bytes
-        packed = struct.pack(f"{byte_order.value}Q", value)
-
-        # 分割為四個 16-bit 暫存器
-        regs = [
-            struct.unpack(f"{byte_order.value}H", packed[0:2])[0],
-            struct.unpack(f"{byte_order.value}H", packed[2:4])[0],
-            struct.unpack(f"{byte_order.value}H", packed[4:6])[0],
-            struct.unpack(f"{byte_order.value}H", packed[6:8])[0],
-        ]
-
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-        return regs
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> int:
-        if len(registers) < 4:
-            raise ModbusDecodeError(f"UInt64 需要 4 個暫存器，收到: {len(registers)}")
-
-        regs = list(registers[:4])
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-
-        # 組合為 8 bytes
-        packed = struct.pack(f"{byte_order.value}HHHH", regs[0], regs[1], regs[2], regs[3])
-        return struct.unpack(f"{byte_order.value}Q", packed)[0]
+    _struct_format = "Q"
+    _register_count = 4
+    _type_name = "UInt64"
+    _min_value = 0
+    _max_value = 18446744073709551615
 
 
-class Int64(ModbusDataType):
+class Int64(_MultiRegisterInt):
     """
     64-bit 有號整數
 
@@ -264,155 +232,35 @@ class Int64(ModbusDataType):
     暫存器數: 4
     """
 
-    @property
-    def register_count(self) -> int:
-        return 4
-
-    def encode(
-        self,
-        value: int,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, int):
-            raise ModbusEncodeError(f"Int64 需要整數，收到: {type(value).__name__}")
-        if not -9223372036854775808 <= value <= 9223372036854775807:
-            raise ModbusEncodeError(f"Int64 範圍為 -9223372036854775808~9223372036854775807，收到: {value}")
-
-        # 編碼為 8 bytes
-        packed = struct.pack(f"{byte_order.value}q", value)
-
-        # 分割為四個 16-bit 暫存器
-        regs = [
-            struct.unpack(f"{byte_order.value}H", packed[0:2])[0],
-            struct.unpack(f"{byte_order.value}H", packed[2:4])[0],
-            struct.unpack(f"{byte_order.value}H", packed[4:6])[0],
-            struct.unpack(f"{byte_order.value}H", packed[6:8])[0],
-        ]
-
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-        return regs
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> int:
-        if len(registers) < 4:
-            raise ModbusDecodeError(f"Int64 需要 4 個暫存器，收到: {len(registers)}")
-
-        regs = list(registers[:4])
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-
-        # 組合為 8 bytes
-        packed = struct.pack(f"{byte_order.value}HHHH", regs[0], regs[1], regs[2], regs[3])
-        return struct.unpack(f"{byte_order.value}q", packed)[0]
+    _struct_format = "q"
+    _register_count = 4
+    _type_name = "Int64"
+    _min_value = -9223372036854775808
+    _max_value = 9223372036854775807
 
 
-class Float32(ModbusDataType):
+class Float32(_MultiRegisterFloat):
     """
     IEEE 754 單精度浮點數
 
     暫存器數: 2
     """
 
-    @property
-    def register_count(self) -> int:
-        return 2
-
-    def encode(
-        self,
-        value: float,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, (int, float)):
-            raise ModbusEncodeError(f"Float32 需要數值，收到: {type(value).__name__}")
-
-        # 編碼為 IEEE 754 單精度
-        packed = struct.pack(f"{byte_order.value}f", float(value))
-
-        # 分割為兩個 16-bit 暫存器
-        high = struct.unpack(f"{byte_order.value}H", packed[0:2])[0]
-        low = struct.unpack(f"{byte_order.value}H", packed[2:4])[0]
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            return [high, low]
-        return [low, high]
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> float:
-        if len(registers) < 2:
-            raise ModbusDecodeError(f"Float32 需要 2 個暫存器，收到: {len(registers)}")
-
-        if register_order == RegisterOrder.HIGH_FIRST:
-            high, low = registers[0], registers[1]
-        else:
-            low, high = registers[0], registers[1]
-
-        # 組合為 4 bytes 並解碼
-        packed = struct.pack(f"{byte_order.value}HH", high, low)
-        return struct.unpack(f"{byte_order.value}f", packed)[0]
+    _struct_format = "f"
+    _register_count = 2
+    _type_name = "Float32"
 
 
-class Float64(ModbusDataType):
+class Float64(_MultiRegisterFloat):
     """
     IEEE 754 雙精度浮點數
 
     暫存器數: 4
     """
 
-    @property
-    def register_count(self) -> int:
-        return 4
-
-    def encode(
-        self,
-        value: float,
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> list[int]:
-        if not isinstance(value, (int, float)):
-            raise ModbusEncodeError(f"Float64 需要數值，收到: {type(value).__name__}")
-
-        # 編碼為 IEEE 754 雙精度
-        packed = struct.pack(f"{byte_order.value}d", float(value))
-
-        # 分割為四個 16-bit 暫存器
-        regs = [
-            struct.unpack(f"{byte_order.value}H", packed[0:2])[0],
-            struct.unpack(f"{byte_order.value}H", packed[2:4])[0],
-            struct.unpack(f"{byte_order.value}H", packed[4:6])[0],
-            struct.unpack(f"{byte_order.value}H", packed[6:8])[0],
-        ]
-
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-        return regs
-
-    def decode(
-        self,
-        registers: list[int],
-        byte_order: ByteOrder,
-        register_order: RegisterOrder,
-    ) -> float:
-        if len(registers) < 4:
-            raise ModbusDecodeError(f"Float64 需要 4 個暫存器，收到: {len(registers)}")
-
-        regs = list(registers[:4])
-        if register_order == RegisterOrder.LOW_FIRST:
-            regs.reverse()
-
-        # 組合為 8 bytes 並解碼
-        packed = struct.pack(f"{byte_order.value}HHHH", regs[0], regs[1], regs[2], regs[3])
-        return struct.unpack(f"{byte_order.value}d", packed)[0]
+    _struct_format = "d"
+    _register_count = 4
+    _type_name = "Float64"
 
 
 __all__ = ["Int16", "UInt16", "Int32", "UInt32", "Int64", "UInt64", "Float32", "Float64"]

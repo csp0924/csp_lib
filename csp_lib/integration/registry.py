@@ -9,7 +9,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from csp_lib.core import get_logger
 
@@ -37,16 +37,23 @@ class DeviceRegistry:
         self._devices: dict[str, AsyncModbusDevice] = {}  # device_id → 設備實例
         self._device_traits: dict[str, set[str]] = {}  # device_id → 該設備的 traits
         self._trait_devices: dict[str, set[str]] = {}  # trait → 擁有該 trait 的 device_ids
+        self._metadata: dict[str, dict[str, Any]] = {}  # device_id → 靜態 metadata
 
     # ---- 註冊 / 移除 ----
 
-    def register(self, device: AsyncModbusDevice, traits: list[str] | None = None) -> None:
+    def register(
+        self,
+        device: AsyncModbusDevice,
+        traits: list[str] | None = None,
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
         """
-        註冊設備與可選的 traits
+        註冊設備與可選的 traits 和 metadata
 
         Args:
             device: 要註冊的 Modbus 設備
             traits: 設備的 trait 標籤列表（可選）
+            metadata: 設備靜態資訊（可選），如 rated_p、rated_s 等
 
         Raises:
             ValueError: device_id 已存在時拋出，防止靜默覆蓋
@@ -56,6 +63,7 @@ class DeviceRegistry:
             raise ValueError(f"Device '{did}' is already registered.")
         self._devices[did] = device
         self._device_traits[did] = set()
+        self._metadata[did] = dict(metadata) if metadata else {}
         for trait in traits or []:
             self._add_trait_index(did, trait)
 
@@ -72,6 +80,7 @@ class DeviceRegistry:
             self._remove_trait_index(device_id, trait)
         del self._devices[device_id]
         del self._device_traits[device_id]
+        self._metadata.pop(device_id, None)
 
     # ---- Trait 管理 ----
 
@@ -128,6 +137,10 @@ class DeviceRegistry:
     def get_traits(self, device_id: str) -> set[str]:
         """取得設備的所有 traits，未註冊時回傳空集合"""
         return set(self._device_traits.get(device_id, set()))
+
+    def get_metadata(self, device_id: str) -> dict[str, Any]:
+        """取得設備的靜態 metadata，未註冊時回傳空 dict"""
+        return dict(self._metadata.get(device_id, {}))
 
     @property
     def all_devices(self) -> list[AsyncModbusDevice]:

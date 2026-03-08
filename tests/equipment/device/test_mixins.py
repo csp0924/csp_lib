@@ -26,6 +26,7 @@ class _AlarmHost(AlarmMixin):
     def __init__(self):
         self._alarm_manager = MagicMock()
         self._alarm_evaluators = []
+        self._disabled_points: set[str] = set()
         self._emitter = MagicMock()
         self._emitter.emit_await = AsyncMock()
         self._config = MagicMock()
@@ -126,6 +127,7 @@ class _WriteHost(WriteMixin):
 
     def __init__(self):
         self._write_points = {}
+        self._disabled_points: set[str] = set()
         self._writer = MagicMock()
         self._writer.write = AsyncMock()
         self._emitter = MagicMock()

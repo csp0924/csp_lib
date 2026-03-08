@@ -83,6 +83,24 @@ class ReadScheduler:
 
         return groups
 
+    def update_groups(
+        self,
+        always_groups: Sequence[ReadGroup] | None = None,
+        rotating_groups: Sequence[Sequence[ReadGroup]] | None = None,
+    ) -> None:
+        """
+        動態更新分組
+
+        Args:
+            always_groups: 新的固定分組，None 表示保持不變
+            rotating_groups: 新的輪替分組，None 表示保持不變
+        """
+        if always_groups is not None:
+            self._always_groups = list(always_groups)
+        if rotating_groups is not None:
+            self._rotating_groups = [list(g) for g in rotating_groups]
+            self._rotating_index = 0
+
     def reset(self) -> None:
         """重置輪詢狀態"""
         self._rotating_index = 0

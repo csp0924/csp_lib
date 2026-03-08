@@ -19,8 +19,9 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Awaitable, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from csp_lib.controller.core import Command, ExecutionConfig, ExecutionMode, StrategyContext, SystemBase
 from csp_lib.controller.executor import StrategyExecutor
@@ -28,16 +29,27 @@ from csp_lib.controller.services import PVDataService
 from csp_lib.controller.strategies import StopStrategy
 from csp_lib.controller.system import ModeManager, ModePriority, ProtectionGuard, ProtectionResult, ProtectionRule
 from csp_lib.controller.system.cascading import CapacityConfig, CascadingStrategy
+from csp_lib.controller.system.event_override import AlarmStopOverride, EventDrivenOverride
+from csp_lib.controller.system.mode import SwitchSource
 from csp_lib.core import AsyncLifecycleMixin, get_logger
 from csp_lib.core.health import HealthReport, HealthStatus
 
 from .command_router import CommandRouter
 from .context_builder import ContextBuilder
 from .data_feed import DeviceDataFeed
+from .distributor import DeviceSnapshot, PowerDistributor
 from .heartbeat import HeartbeatService
 from .orchestrator import SystemCommandOrchestrator
 from .registry import DeviceRegistry
-from .schema import CommandMapping, ContextMapping, DataFeedMapping, HeartbeatMapping
+from .schema import (
+    CapabilityCommandMapping,
+    CapabilityContextMapping,
+    CommandMapping,
+    ContextMapping,
+    DataFeedMapping,
+    HeartbeatMapping,
+    HeartbeatMode,
+)
 
 if TYPE_CHECKING:
     from csp_lib.controller.core import Strategy
@@ -46,6 +58,7 @@ if TYPE_CHECKING:
 logger = get_logger("csp_lib.integration.system_controller")
 
 _AUTO_STOP_MODE = "__auto_stop__"
+_SCHEDULE_MODE = "__schedule__"
 
 
 @dataclass
@@ -56,6 +69,8 @@ class SystemControllerConfig:
     Attributes:
         context_mappings: 設備點位 → StrategyContext 的映射列表
         command_mappings: Command 欄位 → 設備寫入的映射列表
+        capability_context_mappings: capability-driven context 映射列表
+        capability_command_mappings: capability-driven command 映射列表
         system_base: 系統基準值（可選）
         data_feed_mapping: PV 資料餵入映射（可選）
         pv_max_history: PVDataService 最大歷史記錄數
@@ -68,10 +83,17 @@ class SystemControllerConfig:
         on_device_alarm_clear: 設備告警解除時的回呼（per_device 模式）
         heartbeat_mappings: 心跳寫入映射列表（設定時自動建立 HeartbeatService）
         heartbeat_interval: 心跳寫入間隔（秒），預設 1.0
+        use_heartbeat_capability: 是否啟用 HEARTBEAT 能力發現模式
+        heartbeat_capability_mode: 能力發現模式的心跳值模式
+        heartbeat_capability_constant_value: CONSTANT 模式的固定寫入值
+        heartbeat_capability_increment_max: INCREMENT 模式的最大計數值
+        power_distributor: 功率分配器（可選），設定後 capability command mappings 使用 per-device 分配
     """
 
     context_mappings: list[ContextMapping] = field(default_factory=list)
     command_mappings: list[CommandMapping] = field(default_factory=list)
+    capability_context_mappings: list[CapabilityContextMapping] = field(default_factory=list)
+    capability_command_mappings: list[CapabilityCommandMapping] = field(default_factory=list)
     system_base: SystemBase | None = None
     data_feed_mapping: DataFeedMapping | None = None
     pv_max_history: int = 300
@@ -84,6 +106,21 @@ class SystemControllerConfig:
     on_device_alarm_clear: Callable[[AsyncModbusDevice], Awaitable[None]] | None = None
     heartbeat_mappings: list[HeartbeatMapping] = field(default_factory=list)
     heartbeat_interval: float = 1.0
+    use_heartbeat_capability: bool = False
+    heartbeat_capability_mode: HeartbeatMode = HeartbeatMode.TOGGLE
+    heartbeat_capability_constant_value: int = 1
+    heartbeat_capability_increment_max: int = 65535
+    power_distributor: PowerDistributor | None = None
+
+
+class _OverrideState:
+    """EventDrivenOverride 的內部狀態追蹤"""
+
+    __slots__ = ("active", "deactivate_at")
+
+    def __init__(self) -> None:
+        self.active: bool = False
+        self.deactivate_at: float | None = None
 
 
 class SystemController(AsyncLifecycleMixin):
@@ -125,18 +162,35 @@ class SystemController(AsyncLifecycleMixin):
             self._data_feed = DeviceDataFeed(registry, config.data_feed_mapping, self._pv_service)
 
         # Context 建構器
-        self._context_builder = ContextBuilder(registry, config.context_mappings, system_base=config.system_base)
+        self._context_builder = ContextBuilder(
+            registry,
+            config.context_mappings,
+            system_base=config.system_base,
+            capability_mappings=config.capability_context_mappings or None,
+        )
 
         # Command 路由器
-        self._command_router = CommandRouter(registry, config.command_mappings)
+        self._command_router = CommandRouter(
+            registry,
+            config.command_mappings,
+            capability_mappings=config.capability_command_mappings or None,
+        )
 
         # 系統指令編排器
         self._orchestrator = SystemCommandOrchestrator(registry)
 
         # 心跳服務（可選）
         self._heartbeat: HeartbeatService | None = None
-        if config.heartbeat_mappings:
-            self._heartbeat = HeartbeatService(registry, config.heartbeat_mappings, config.heartbeat_interval)
+        if config.heartbeat_mappings or config.use_heartbeat_capability:
+            self._heartbeat = HeartbeatService(
+                registry,
+                mappings=config.heartbeat_mappings or None,
+                interval=config.heartbeat_interval,
+                use_capability=config.use_heartbeat_capability,
+                mode=config.heartbeat_capability_mode,
+                constant_value=config.heartbeat_capability_constant_value,
+                increment_max=config.heartbeat_capability_increment_max,
+            )
 
         # 策略執行器：context_provider 與 on_command 由本控制器管理
         self._executor = StrategyExecutor(
@@ -144,9 +198,13 @@ class SystemController(AsyncLifecycleMixin):
             on_command=self._on_command,
         )
 
-        # 自動停機狀態
+        # 自動停機狀態（向後相容）
         self._auto_stop_active = False
         self._cached_context = None
+
+        # 事件驅動 Override
+        self._event_overrides: list[EventDrivenOverride] = []
+        self._event_override_states: dict[str, _OverrideState] = {}
 
         # 設備級告警追蹤（per_device 模式）
         self._alarmed_devices: set[str] = set()
@@ -154,7 +212,7 @@ class SystemController(AsyncLifecycleMixin):
         # 背景任務
         self._run_task: asyncio.Task[None] | None = None
 
-        # 註冊自動停機模式
+        # 註冊自動停機模式（通過 EventDrivenOverride 機制）
         if config.auto_stop_on_alarm:
             self._mode_manager.register(
                 _AUTO_STOP_MODE,
@@ -162,11 +220,23 @@ class SystemController(AsyncLifecycleMixin):
                 ModePriority.PROTECTION + 1,
                 "Auto stop on system alarm",
             )
+            self.register_event_override(
+                AlarmStopOverride(name=_AUTO_STOP_MODE, alarm_key=config.system_alarm_key)
+            )
 
     # ---- 模式管理（委派 ModeManager）----
 
     def register_mode(self, name: str, strategy: Strategy, priority: int, description: str = "") -> None:
-        """註冊模式"""
+        """註冊模式，並驗證策略所需的 capabilities"""
+        required = strategy.required_capabilities
+        if required:
+            for cap in required:
+                devices = self._registry.get_devices_with_capability(cap)
+                if not devices:
+                    logger.warning(
+                        f"Strategy '{strategy}' requires capability '{cap.name}' "
+                        f"but no registered device has it."
+                    )
         self._mode_manager.register(name, strategy, priority, description)
 
     async def set_base_mode(self, name: str | None) -> None:
@@ -188,6 +258,50 @@ class SystemController(AsyncLifecycleMixin):
     async def pop_override(self, name: str) -> None:
         """移除 override 模式"""
         await self._mode_manager.pop_override(name)
+
+    def register_event_override(self, override: EventDrivenOverride) -> None:
+        """
+        註冊事件驅動的 override
+
+        Args:
+            override: 實作 EventDrivenOverride 的實例，name 必須對應已註冊的模式
+        """
+        self._event_overrides.append(override)
+        self._event_override_states[override.name] = _OverrideState()
+        logger.debug(f"Event override registered: {override.name}")
+
+    # ---- 排程模式控制（ScheduleModeController 實作）----
+
+    async def activate_schedule_mode(self, strategy: Strategy, *, description: str = "") -> None:
+        """
+        啟用排程模式（ScheduleModeController 實作）
+
+        首次呼叫時註冊 ``__schedule__`` 模式並設為 base mode；
+        後續呼叫更新策略，觸發 on_strategy_change。
+        """
+        mm = self._mode_manager
+        if _SCHEDULE_MODE not in mm.registered_modes:
+            mm.register(_SCHEDULE_MODE, strategy, ModePriority.SCHEDULE, description)
+            await mm.add_base_mode(_SCHEDULE_MODE, source=SwitchSource.SCHEDULE)
+        else:
+            await mm.update_mode_strategy(
+                _SCHEDULE_MODE,
+                strategy,
+                source=SwitchSource.SCHEDULE,
+                description=description,
+            )
+            if _SCHEDULE_MODE not in mm.base_mode_names:
+                await mm.add_base_mode(_SCHEDULE_MODE, source=SwitchSource.SCHEDULE)
+
+    async def deactivate_schedule_mode(self) -> None:
+        """
+        停用排程模式（ScheduleModeController 實作）
+
+        從 base mode 移除 ``__schedule__``。
+        """
+        mm = self._mode_manager
+        if _SCHEDULE_MODE in mm.base_mode_names:
+            await mm.remove_base_mode(_SCHEDULE_MODE)
 
     def trigger(self) -> None:
         """手動觸發策略執行"""
@@ -249,35 +363,66 @@ class SystemController(AsyncLifecycleMixin):
         result = self._protection_guard.apply(command, context)
         protected_command = result.protected_command
 
-        # 處理自動停機（system_wide 模式）
-        if self._config.auto_stop_on_alarm and self._config.alarm_mode == "system_wide":
-            await self._handle_auto_stop(context)
+        # 評估事件驅動 overrides（包含自動停機）
+        if self._event_overrides:
+            await self._evaluate_event_overrides(context)
 
         # 路由到設備（is_protected 設備由 CommandRouter 防禦性跳過）
-        await self._command_router.route(protected_command)
+        if self._config.power_distributor is not None and self._config.capability_command_mappings:
+            snapshots = self._build_device_snapshots()
+            per_device = self._config.power_distributor.distribute(protected_command, snapshots)
+            await self._command_router.route_per_device(protected_command, per_device)
+        else:
+            await self._command_router.route(protected_command)
 
         # 處理設備級告警（per_device 模式）
         if self._config.alarm_mode == "per_device":
             await self._handle_device_alarms()
 
-    async def _handle_auto_stop(self, context: StrategyContext) -> None:
-        """處理自動停機 override"""
-        has_alarm = context.extra.get(self._config.system_alarm_key, False)
+    async def _evaluate_event_overrides(self, context: StrategyContext) -> None:
+        """統一評估所有 EventDrivenOverride"""
+        now = time.monotonic()
 
-        if has_alarm and not self._auto_stop_active:
-            self._auto_stop_active = True
-            try:
-                await self._mode_manager.push_override(_AUTO_STOP_MODE)
-                logger.warning("Auto stop activated due to system alarm")
-            except (KeyError, ValueError):
-                pass  # 已經在堆疊中或未註冊
-        elif not has_alarm and self._auto_stop_active:
-            self._auto_stop_active = False
-            try:
-                await self._mode_manager.pop_override(_AUTO_STOP_MODE)
-                logger.info("Auto stop deactivated, alarm cleared")
-            except KeyError:
-                pass  # 不在堆疊中
+        for override in self._event_overrides:
+            state = self._event_override_states.get(override.name)
+            if state is None:
+                continue
+
+            should = override.should_activate(context)
+
+            if should and not state.active:
+                state.active = True
+                state.deactivate_at = None
+                try:
+                    await self._mode_manager.push_override(override.name, source=SwitchSource.EVENT)
+                    logger.warning(f"Event override activated: {override.name}")
+                except (KeyError, ValueError):
+                    pass
+
+                # 向後相容：更新 _auto_stop_active
+                if override.name == _AUTO_STOP_MODE:
+                    self._auto_stop_active = True
+
+            elif not should and state.active:
+                if state.deactivate_at is None:
+                    state.deactivate_at = now + override.cooldown_seconds
+
+                if now >= state.deactivate_at:
+                    state.active = False
+                    state.deactivate_at = None
+                    try:
+                        await self._mode_manager.pop_override(override.name, source=SwitchSource.EVENT)
+                        logger.info(f"Event override deactivated: {override.name}")
+                    except KeyError:
+                        pass
+
+                    # 向後相容：更新 _auto_stop_active
+                    if override.name == _AUTO_STOP_MODE:
+                        self._auto_stop_active = False
+
+    async def _handle_auto_stop(self, context: StrategyContext) -> None:
+        """處理自動停機 override（已棄用，由 _evaluate_event_overrides 取代）"""
+        await self._evaluate_event_overrides(context)
 
     async def _handle_device_alarms(self) -> None:
         """處理設備級告警：逐設備檢查，送關機指令或呼叫回呼"""
@@ -297,6 +442,35 @@ class SystemController(AsyncLifecycleMixin):
                 if self._config.on_device_alarm_clear is not None:
                     await self._config.on_device_alarm_clear(device)
                 logger.info(f"Device alarm cleared: {device_id}")
+
+    def _build_device_snapshots(self) -> list[DeviceSnapshot]:
+        """建構所有可用設備的狀態快照（供 PowerDistributor 使用）"""
+        snapshots: list[DeviceSnapshot] = []
+        for device in self._registry.all_devices:
+            if not device.is_responsive or device.is_protected:
+                continue
+            metadata = self._registry.get_metadata(device.device_id)
+            values = device.latest_values
+
+            # 建構 capability slot → value 映射
+            cap_values: dict[str, dict[str, Any]] = {}
+            bindings = getattr(device, "capabilities", {})
+            for cap_name, binding in bindings.items():
+                slot_values: dict[str, Any] = {}
+                for slot in binding.capability.read_slots:
+                    point = binding.resolve(slot)
+                    slot_values[slot] = values.get(point)
+                cap_values[cap_name] = slot_values
+
+            snapshots.append(
+                DeviceSnapshot(
+                    device_id=device.device_id,
+                    metadata=metadata,
+                    latest_values=values,
+                    capabilities=cap_values,
+                )
+            )
+        return snapshots
 
     def _resolve_strategy(self) -> Strategy | None:
         """根據 ModeManager 狀態解析當前應使用的策略"""
@@ -407,6 +581,11 @@ class SystemController(AsyncLifecycleMixin):
     def heartbeat(self) -> HeartbeatService | None:
         """心跳服務"""
         return self._heartbeat
+
+    @property
+    def event_overrides(self) -> list[EventDrivenOverride]:
+        """已註冊的事件驅動 override 列表"""
+        return list(self._event_overrides)
 
     @property
     def auto_stop_active(self) -> bool:

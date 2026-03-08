@@ -12,24 +12,27 @@ tags: [type/reference, status/complete]
 │                    Integration Layer                     │
 │  DeviceRegistry · ContextBuilder · CommandRouter         │
 │  GridControlLoop · SystemController · GroupController     │
+│  PowerDistributor · HeartbeatService                     │
 ├─────────────────────────────────────────────────────────┤
 │              Manager Layer              │   Controller   │
 │  DeviceManager · AlarmPersistence       │   Strategy     │
 │  DataUpload · StateSync · Unified       │   Executor     │
-│  WriteCommand                           │   Protection   │
+│  WriteCommand · ScheduleService         │   Protection   │
 ├─────────────────────────────────────────┤   ModeManager  │
 │              Equipment Layer            │   Cascading    │
-│  AsyncModbusDevice · Points · Alarms    │                │
+│  AsyncModbusDevice · AsyncCANDevice     │   LoadShedding │
+│  Points · Alarms · DeviceProtocol       │   EventOverride│
 │  Transport · Transforms · Pipeline      │                │
 ├─────────────────────────────────────────┴────────────────┤
-│                      Modbus Layer                        │
-│  DataTypes · Codec · Clients (TCP/RTU/Shared)            │
-├─────────────────────────────────────────────────────────┤
+│             Modbus Layer     │        CAN Layer           │
+│  DataTypes · Codec           │  CANBusConfig · CANFrame   │
+│  Clients (TCP/RTU/Shared)    │  PythonCANClient           │
+├──────────────────────────────┴──────────────────────────┤
 │                       Core Layer                         │
-│  Logging · Lifecycle · Errors · Health                   │
+│  Logging · Lifecycle · Errors · Health · CircuitBreaker  │
 └─────────────────────────────────────────────────────────┘
 
-附加模組: Mongo · Redis · Cluster · Monitor · Notification · Modbus Server
+附加模組: Mongo · Redis · Cluster · Monitor · Notification · Modbus Server · GUI
 ```
 
 ## 模組導覽
@@ -38,8 +41,9 @@ tags: [type/reference, status/complete]
 
 | 圖示 | 模組 | 說明 |
 |------|------|------|
-| 🔧 | [[_MOC Core]] | 日誌、生命週期、錯誤、健康檢查 |
+| 🔧 | [[_MOC Core]] | 日誌、生命週期、錯誤、健康檢查、斷路器 |
 | 📡 | [[_MOC Modbus]] | Modbus 通訊協定、資料型別、客戶端 |
+| 🚌 | [[_MOC CAN]] | CAN Bus 通訊協定、設定、客戶端 |
 | ⚙️ | [[_MOC Equipment]] | 設備抽象、點位、告警、傳輸 |
 | 🧠 | [[_MOC Controller]] | 控制策略、保護規則、模式管理 |
 | 🔗 | [[_MOC Integration]] | 設備-控制器整合、控制迴圈 |
@@ -77,5 +81,5 @@ tags: [type/reference, status/complete]
 
 - **套件名稱**: `csp0924_lib`
 - **Python**: 3.13+
-- **目前版本**: 0.3.3
+- **目前版本**: 0.4.0
 - **授權**: Proprietary

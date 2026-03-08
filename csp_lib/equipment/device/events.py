@@ -30,6 +30,9 @@ EVENT_ALARM_TRIGGERED = "alarm_triggered"
 EVENT_ALARM_CLEARED = "alarm_cleared"
 EVENT_WRITE_COMPLETE = "write_complete"
 EVENT_WRITE_ERROR = "write_error"
+EVENT_RECONFIGURED = "reconfigured"
+EVENT_RESTARTED = "restarted"
+EVENT_POINT_TOGGLED = "point_toggled"
 
 
 @dataclass(frozen=True)
@@ -108,6 +111,33 @@ class ReadCompletePayload:
     device_id: str
     values: dict[str, Any]
     duration_ms: float
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class ReconfiguredPayload:
+    """重新配置事件資料"""
+
+    device_id: str
+    changed_sections: tuple[str, ...]
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class RestartedPayload:
+    """重啟事件資料"""
+
+    device_id: str
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass(frozen=True)
+class PointToggledPayload:
+    """點位開關事件資料"""
+
+    device_id: str
+    point_name: str
+    enabled: bool
     timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -302,6 +332,9 @@ __all__ = [
     "WriteCompletePayload",
     "WriteErrorPayload",
     "DeviceAlarmPayload",
+    "ReconfiguredPayload",
+    "RestartedPayload",
+    "PointToggledPayload",
     # Event names
     "EVENT_CONNECTED",
     "EVENT_DISCONNECTED",
@@ -312,4 +345,7 @@ __all__ = [
     "EVENT_ALARM_CLEARED",
     "EVENT_WRITE_COMPLETE",
     "EVENT_WRITE_ERROR",
+    "EVENT_RECONFIGURED",
+    "EVENT_RESTARTED",
+    "EVENT_POINT_TOGGLED",
 ]

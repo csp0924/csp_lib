@@ -3,11 +3,13 @@ tags: [type/concept, status/complete]
 ---
 # Event System
 
-> 事件驅動架構 — DeviceEventEmitter 與 9 種事件類型
+> 事件驅動架構 — DeviceEventEmitter 與 9 種事件類型（Modbus + CAN 共用）
 
 ## 概述
 
 csp_lib 採用事件驅動架構，設備狀態變化透過 [[DeviceEventEmitter]] 通知所有訂閱者。事件系統基於 `asyncio.Queue`，實現非阻塞的發布/訂閱模式。
+
+v0.4.0 重要：[[AsyncCANDevice]] 與 [[AsyncModbusDevice]] 共用同一套事件系統，所有 9 種事件皆適用於兩種設備類型。
 
 ## DeviceEventEmitter
 
@@ -103,6 +105,16 @@ AsyncModbusDevice
     ├── emit(WRITE_COMPLETE)    ──→  WriteCommandManager (審計記錄)
     └── emit(WRITE_ERROR)       ──→  WriteCommandManager (錯誤記錄)
 ```
+
+## CAN 設備的事件特性
+
+[[AsyncCANDevice]]（v0.4.0）的事件行為與 [[AsyncModbusDevice]] 相同，但有以下差異：
+
+| 特性 | AsyncModbusDevice | AsyncCANDevice |
+|------|------------------|---------------|
+| `READ_COMPLETE` 觸發 | 週期讀取排程 | CAN RX 幀接收 |
+| `WRITE_COMPLETE` 觸發 | 暫存器寫入 | CAN TX 幀發送 |
+| `CONNECTED` 觸發 | TCP/RTU 連線成功 | CAN Bus 連線成功 |
 
 ## 事件訂閱基底
 

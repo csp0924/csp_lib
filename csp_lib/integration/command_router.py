@@ -15,7 +15,7 @@ from csp_lib.core import get_logger
 from csp_lib.core.errors import DeviceError
 
 from .registry import DeviceRegistry
-from .schema import CommandMapping
+from .schema import CapabilityCommandMapping, CommandMapping
 
 if TYPE_CHECKING:
     from csp_lib.controller.core import Command
@@ -39,16 +39,23 @@ class CommandRouter:
         - 設備不存在或離線 → log warning + 跳過
     """
 
-    def __init__(self, registry: DeviceRegistry, mappings: list[CommandMapping]) -> None:
+    def __init__(
+        self,
+        registry: DeviceRegistry,
+        mappings: list[CommandMapping],
+        capability_mappings: list[CapabilityCommandMapping] | None = None,
+    ) -> None:
         """
         初始化路由器
 
         Args:
             registry: 設備查詢索引
             mappings: Command 欄位 → 設備寫入的映射列表
+            capability_mappings: capability-driven command 映射列表（可選）
         """
         self._registry = registry
         self._mappings = mappings
+        self._capability_mappings = capability_mappings or []
 
     async def route(self, command: Command) -> None:
         """
@@ -77,6 +84,27 @@ class CommandRouter:
             else:
                 await self._write_trait_broadcast(mapping.trait, mapping.point_name, value)  # type: ignore[arg-type]
 
+        for cap_mapping in self._capability_mappings:
+            value = getattr(command, cap_mapping.command_field, None)
+            if value is None:
+                continue
+
+            if cap_mapping.transform is not None:
+                try:
+                    value = cap_mapping.transform(value)
+                except Exception:
+                    logger.error(
+                        f"Transform failed for capability command field '{cap_mapping.command_field}', skipping."
+                    )
+                    continue
+
+            if cap_mapping.device_id is not None:
+                await self._write_capability_single(cap_mapping, value)
+            elif cap_mapping.trait is not None:
+                await self._write_capability_trait(cap_mapping, value)
+            else:
+                await self._write_capability_auto(cap_mapping, value)
+
     async def _write_single(self, device_id: str, point_name: str, value: object) -> None:
         """device_id 模式：寫入單一設備"""
         device = self._registry.get_device(device_id)
@@ -102,6 +130,130 @@ class CommandRouter:
                 logger.warning(f"Device '{device.device_id}' is protected (alarm), skipping broadcast write.")
                 continue
             await self._safe_write(device, point_name, value)
+
+    async def _write_capability_single(self, mapping: CapabilityCommandMapping, value: object) -> None:
+        """capability 單一設備寫入"""
+        device = self._registry.get_device(mapping.device_id)  # type: ignore[arg-type]
+        if device is None:
+            logger.warning(f"Device '{mapping.device_id}' not found in registry, skipping capability write.")
+            return
+        if device.is_protected:
+            logger.warning(f"Device '{mapping.device_id}' is protected (alarm), skipping capability write.")
+            return
+        if not device.is_responsive:
+            logger.warning(f"Device '{mapping.device_id}' is not responsive, skipping capability write.")
+            return
+        if not device.has_capability(mapping.capability):
+            logger.warning(
+                f"Device '{mapping.device_id}' lacks capability '{mapping.capability.name}', skipping write."
+            )
+            return
+        point_name = device.resolve_point(mapping.capability, mapping.slot)
+        await self._safe_write(device, point_name, value)
+
+    async def _write_capability_trait(self, mapping: CapabilityCommandMapping, value: object) -> None:
+        """capability trait 模式：廣播寫入"""
+        devices = self._registry.get_responsive_devices_by_trait(mapping.trait)  # type: ignore[arg-type]
+        if not devices:
+            logger.warning(f"No responsive devices found for trait '{mapping.trait}'.")
+            return
+        for device in devices:
+            if device.is_protected:
+                logger.warning(
+                    f"Device '{device.device_id}' is protected (alarm), skipping capability broadcast write."
+                )
+                continue
+            if not device.has_capability(mapping.capability):
+                continue
+            point_name = device.resolve_point(mapping.capability, mapping.slot)
+            await self._safe_write(device, point_name, value)
+
+    async def _write_capability_auto(self, mapping: CapabilityCommandMapping, value: object) -> None:
+        """capability 自動發現模式：寫入所有具備該 capability 的 responsive 設備"""
+        devices = self._registry.get_responsive_devices_with_capability(mapping.capability)
+        if not devices:
+            logger.warning(f"No responsive devices with capability '{mapping.capability.name}' found.")
+            return
+        for device in devices:
+            if device.is_protected:
+                logger.warning(
+                    f"Device '{device.device_id}' is protected (alarm), skipping capability auto write."
+                )
+                continue
+            point_name = device.resolve_point(mapping.capability, mapping.slot)
+            await self._safe_write(device, point_name, value)
+
+    async def route_per_device(self, command: Command, per_device_commands: dict[str, Command]) -> None:
+        """
+        路由 Command 到設備寫入（per-device 分配模式）
+
+        明確映射使用系統級 command（同 route()），
+        capability 映射使用 per_device_commands 中各設備的個別 Command。
+
+        Args:
+            command: 系統級命令（用於明確映射）
+            per_device_commands: device_id → Command 的映射（由 PowerDistributor 產生）
+        """
+        # 1. 明確映射：同 route() 邏輯
+        for mapping in self._mappings:
+            value = getattr(command, mapping.command_field, None)
+            if value is None:
+                continue
+            if mapping.transform is not None:
+                try:
+                    value = mapping.transform(value)
+                except Exception:
+                    logger.error(f"Transform failed for command field '{mapping.command_field}', skipping.")
+                    continue
+            if mapping.device_id is not None:
+                await self._write_single(mapping.device_id, mapping.point_name, value)
+            else:
+                await self._write_trait_broadcast(mapping.trait, mapping.point_name, value)  # type: ignore[arg-type]
+
+        # 2. Capability 映射：per-device 分配
+        for cap_mapping in self._capability_mappings:
+            targets = self._resolve_capability_targets(cap_mapping)
+            for device in targets:
+                dev_cmd = per_device_commands.get(device.device_id)
+                if dev_cmd is None:
+                    continue
+                value = getattr(dev_cmd, cap_mapping.command_field, None)
+                if value is None:
+                    continue
+                await self._apply_transform_and_write(device, cap_mapping, value)
+
+    def _resolve_capability_targets(self, mapping: CapabilityCommandMapping) -> list[AsyncModbusDevice]:
+        """解析 capability mapping 的目標設備列表（已過濾 responsive + non-protected + has_capability）"""
+        if mapping.device_id is not None:
+            device = self._registry.get_device(mapping.device_id)  # type: ignore[arg-type]
+            if (
+                device is not None
+                and device.is_responsive
+                and not device.is_protected
+                and device.has_capability(mapping.capability)
+            ):
+                return [device]
+            return []
+        if mapping.trait is not None:
+            devices = self._registry.get_responsive_devices_by_trait(mapping.trait)  # type: ignore[arg-type]
+            return [d for d in devices if not d.is_protected and d.has_capability(mapping.capability)]
+        devices = self._registry.get_responsive_devices_with_capability(mapping.capability)
+        return [d for d in devices if not d.is_protected]
+
+    async def _apply_transform_and_write(
+        self, device: AsyncModbusDevice, mapping: CapabilityCommandMapping, value: object
+    ) -> None:
+        """套用 transform 後寫入 capability 解析的點位"""
+        if mapping.transform is not None:
+            try:
+                value = mapping.transform(value)
+            except Exception:
+                logger.error(
+                    f"Transform failed for capability command field '{mapping.command_field}', skipping."
+                )
+                return
+        point_name = device.resolve_point(mapping.capability, mapping.slot)
+        await self._safe_write(device, point_name, value)
 
     @staticmethod
     async def _safe_write(device: AsyncModbusDevice, point_name: str, value: object) -> None:

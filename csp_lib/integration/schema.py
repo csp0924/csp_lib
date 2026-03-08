@@ -12,7 +12,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
+
+if TYPE_CHECKING:
+    from csp_lib.equipment.device.capability import Capability
 
 
 class HeartbeatMode(Enum):
@@ -169,3 +172,87 @@ class HeartbeatMapping:
 
     def __post_init__(self) -> None:
         _validate_device_or_trait(self.device_id, self.trait)
+
+
+@dataclass(frozen=True)
+class CapabilityContextMapping:
+    """
+    Capability-driven context mapping.
+
+    用 capability 的 read slot 取代明確的 point_name。
+    實際點位名稱由各設備的 CapabilityBinding 自動解析。
+
+    Scoping:
+    - device_id: 讀取單一設備
+    - trait: 讀取同 trait 且具備該 capability 的所有設備
+    - 皆不設: 自動發現所有具備該 capability 的設備
+
+    Attributes:
+        capability: 目標能力
+        slot: capability 的 read slot 名稱
+        context_field: 目標 context 欄位 ("soc" | "extra.xxx")
+        device_id: 指定單一設備 ID（與 trait 擇一，或皆不設）
+        trait: 指定 trait 標籤（與 device_id 擇一，或皆不設）
+        aggregate: 多設備聚合函式（trait / auto 模式有效）
+        custom_aggregate: 自訂聯合函式，優先於 aggregate
+        default: 無法取得有效值時的預設值
+        transform: 值轉換函式，套用於聚合結果之後
+    """
+
+    capability: Capability
+    slot: str
+    context_field: str
+    device_id: str | None = None
+    trait: str | None = None
+    aggregate: AggregateFunc = AggregateFunc.AVERAGE
+    custom_aggregate: Callable[[list[Any]], Any] | None = None
+    default: Any = None
+    transform: Callable[[Any], Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.device_id is not None and self.trait is not None:
+            raise ValueError("Cannot set both device_id and trait.")
+        if self.slot not in self.capability.read_slots:
+            raise ValueError(
+                f"Slot '{self.slot}' not in capability '{self.capability.name}' "
+                f"read_slots: {self.capability.read_slots}"
+            )
+
+
+@dataclass(frozen=True)
+class CapabilityCommandMapping:
+    """
+    Capability-driven command mapping.
+
+    用 capability 的 write slot 取代明確的 point_name。
+    實際點位名稱由各設備的 CapabilityBinding 自動解析。
+
+    Scoping:
+    - device_id: 寫入單一設備
+    - trait: 廣播寫入同 trait 且具備該 capability 的所有設備
+    - 皆不設: 自動發現所有具備該 capability 的設備
+
+    Attributes:
+        command_field: Command 屬性名稱
+        capability: 目標能力
+        slot: capability 的 write slot 名稱
+        device_id: 指定單一設備 ID（與 trait 擇一，或皆不設）
+        trait: 指定 trait 標籤（與 device_id 擇一，或皆不設）
+        transform: 值轉換函式，寫入前套用
+    """
+
+    command_field: str
+    capability: Capability
+    slot: str
+    device_id: str | None = None
+    trait: str | None = None
+    transform: Callable[[float], Any] | None = None
+
+    def __post_init__(self) -> None:
+        if self.device_id is not None and self.trait is not None:
+            raise ValueError("Cannot set both device_id and trait.")
+        if self.slot not in self.capability.write_slots:
+            raise ValueError(
+                f"Slot '{self.slot}' not in capability '{self.capability.name}' "
+                f"write_slots: {self.capability.write_slots}"
+            )

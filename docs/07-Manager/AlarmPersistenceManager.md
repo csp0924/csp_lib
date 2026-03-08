@@ -33,7 +33,8 @@ source: csp_lib/manager/alarm/persistence.py
 | 參數 | 型別 | 說明 |
 |------|------|------|
 | `repository` | `AlarmRepository` | 告警資料存取層（遵循 AlarmRepository Protocol） |
-| `dispatcher` | `NotificationDispatcher \| None` | 通知分發器（可選） |
+| `dispatcher` | `NotificationSender \| None` | 通知分發器（可選） |
+| `config` | `AlarmPersistenceConfig \| None` | 告警持久化配置（可選） |
 
 ## 訂閱的事件
 
@@ -58,11 +59,15 @@ from csp_lib.manager import AlarmPersistenceManager, MongoAlarmRepository
 
 repo = MongoAlarmRepository(db)
 manager = AlarmPersistenceManager(
-    device=device,
     repository=repo,
-    redis_client=redis,
-    dispatcher=notification_dispatcher,  # Optional
+    dispatcher=notification_sender,  # Optional：NotificationSender 實例
 )
+
+# 訂閱設備事件
+manager.subscribe(device)
+
+# 取消訂閱
+manager.unsubscribe(device)
 ```
 
 ## 相關頁面

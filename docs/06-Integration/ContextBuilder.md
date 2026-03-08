@@ -28,12 +28,13 @@ source: csp_lib/integration/context_builder.py
 | `registry` | [[DeviceRegistry]] | 設備查詢索引 |
 | `mappings` | `list[ContextMapping]` | 設備點位 → context 欄位的映射列表 |
 | `system_base` | `SystemBase \| None` | 系統基準值（可選） |
+| `capability_mappings` | `list[CapabilityContextMapping] \| None` | Capability-driven context 映射列表（可選） |
 
 ## API
 
 | 方法 | 說明 |
 |------|------|
-| `build() → StrategyContext` | 遍歷所有映射，解析設備值並填入 StrategyContext |
+| `build() → StrategyContext` | 遍歷所有映射（明確 + capability），解析設備值並填入 StrategyContext |
 
 ## 內部流程
 
@@ -41,14 +42,20 @@ source: csp_lib/integration/context_builder.py
 2. 遍歷每個 [[ContextMapping]]：
    - **device_id 模式**：直接讀取單一設備的 `latest_values`
    - **trait 模式**：收集所有 responsive 設備的值，透過 [[AggregateFunc]] 聚合
-3. 聚合結果為 `None` 時使用 `default`
-4. 套用 `transform`（若有），例外時回傳 `default` 並 log warning
-5. 透過 `context_field` 寫入 context 對應欄位
+3. 遍歷每個 [[CapabilityContextMapping]]：
+   - **device_id 模式**：`resolve_point()` → `latest_values`
+   - **trait 模式**：過濾 responsive + `has_capability` → 聚合
+   - **auto 模式**：`get_responsive_devices_with_capability()` → 聚合
+4. 聚合結果為 `None` 時使用 `default`
+5. 套用 `transform`（若有），例外時回傳 `default` 並 log warning
+6. 透過 `context_field` 寫入 context 對應欄位
 
 ## 相關頁面
 
-- [[ContextMapping]] — 映射定義
+- [[ContextMapping]] — 明確映射定義
+- [[CapabilityContextMapping]] — Capability-driven 映射定義
 - [[AggregateFunc]] — 聚合函式
 - [[DeviceRegistry]] — 設備查詢索引
 - [[GridControlLoop]] — 使用 ContextBuilder 作為 context_provider
 - [[SystemController]] — 使用 ContextBuilder 並注入 system_alarm
+- [[CapabilityBinding Integration]] — 完整架構與流程圖

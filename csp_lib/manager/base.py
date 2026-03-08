@@ -7,7 +7,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Callable
+from typing import TYPE_CHECKING, Callable, Protocol, runtime_checkable
 
 from csp_lib.core import get_logger
 
@@ -15,6 +15,19 @@ if TYPE_CHECKING:
     from csp_lib.equipment.device import AsyncModbusDevice
 
 logger = get_logger(__name__)
+
+
+@runtime_checkable
+class AsyncRepository(Protocol):
+    """
+    Repository 標記 Protocol
+
+    所有 Repository 介面的共同基底，定義健康檢查方法。
+    """
+
+    async def health_check(self) -> bool:
+        """檢查 Repository 連線是否正常"""
+        ...
 
 
 class DeviceEventSubscriber:
@@ -89,5 +102,6 @@ class DeviceEventSubscriber:
 
 
 __all__ = [
+    "AsyncRepository",
     "DeviceEventSubscriber",
 ]

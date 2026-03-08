@@ -10,7 +10,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import IntEnum
+from enum import Enum, IntEnum
 from typing import TYPE_CHECKING, Awaitable, Callable
 
 from csp_lib.core import get_logger
@@ -19,6 +19,15 @@ if TYPE_CHECKING:
     from csp_lib.controller.core import Strategy
 
 logger = get_logger("csp_lib.controller.system.mode")
+
+
+class SwitchSource(Enum):
+    """模式切換來源（審計用）"""
+
+    MANUAL = "manual"
+    SCHEDULE = "schedule"
+    EVENT = "event"
+    INTERNAL = "internal"
 
 
 class ModePriority(IntEnum):
@@ -66,6 +75,7 @@ class ModeManager:
         self._base_mode_names: list[str] = []
         self._override_names: list[str] = []
         self._on_strategy_change = on_strategy_change
+        self._last_switch_source: SwitchSource | None = None
 
     # ---- 註冊 / 移除 ----
 
@@ -107,12 +117,13 @@ class ModeManager:
 
     # ---- 基礎模式 ----
 
-    async def set_base_mode(self, name: str | None) -> None:
+    async def set_base_mode(self, name: str | None, *, source: SwitchSource | None = None) -> None:
         """
         設定基礎模式（向下相容：清除列表後設定單一 base mode）
 
         Args:
             name: 模式名稱，None 表示清除
+            source: 切換來源（可選，審計用）
 
         Raises:
             KeyError: 模式名稱不存在
@@ -123,10 +134,12 @@ class ModeManager:
         old_strategy = self.effective_strategy
         self._base_mode_names = [name] if name is not None else []
         new_strategy = self.effective_strategy
+        if source is not None:
+            self._last_switch_source = source
         logger.info(f"Base mode set to: {name}")
         await self._notify_change(old_strategy, new_strategy)
 
-    async def add_base_mode(self, name: str) -> None:
+    async def add_base_mode(self, name: str, *, source: SwitchSource | None = None) -> None:
         """
         新增基礎模式（多 base mode 共存）
 
@@ -134,6 +147,7 @@ class ModeManager:
 
         Args:
             name: 模式名稱
+            source: 切換來源（可選，審計用）
 
         Raises:
             KeyError: 模式名稱不存在
@@ -146,15 +160,18 @@ class ModeManager:
         old_strategy = self.effective_strategy
         self._base_mode_names.append(name)
         new_strategy = self.effective_strategy
+        if source is not None:
+            self._last_switch_source = source
         logger.info(f"Base mode added: {name}")
         await self._notify_change(old_strategy, new_strategy)
 
-    async def remove_base_mode(self, name: str) -> None:
+    async def remove_base_mode(self, name: str, *, source: SwitchSource | None = None) -> None:
         """
         移除基礎模式
 
         Args:
             name: 模式名稱
+            source: 切換來源（可選，審計用）
 
         Raises:
             KeyError: 該 base mode 不在列表中
@@ -165,17 +182,111 @@ class ModeManager:
         old_strategy = self.effective_strategy
         self._base_mode_names.remove(name)
         new_strategy = self.effective_strategy
+        if source is not None:
+            self._last_switch_source = source
         logger.info(f"Base mode removed: {name}")
+        await self._notify_change(old_strategy, new_strategy)
+
+    # ---- 模式策略更新 ----
+
+    async def update_mode_strategy(
+        self,
+        name: str,
+        strategy: Strategy,
+        *,
+        source: SwitchSource | None = None,
+        description: str | None = None,
+    ) -> None:
+        """
+        替換已註冊模式的策略（原子操作）
+
+        如果該模式當前是活躍的（在 base mode 或 override 中），
+        自動呼叫 old.on_deactivate() 和 new.on_activate()，
+        並觸發 _notify_change。
+
+        Args:
+            name: 模式名稱
+            strategy: 新策略實例
+            source: 切換來源（可選，審計用）
+            description: 新描述（可選，None 時保留原描述）
+
+        Raises:
+            KeyError: 模式名稱不存在
+        """
+        if name not in self._modes:
+            raise KeyError(f"Mode '{name}' is not registered")
+
+        old_mode = self._modes[name]
+        old_strategy = old_mode.strategy
+        is_active = name in self._base_mode_names or name in self._override_names
+
+        if is_active:
+            await old_strategy.on_deactivate()
+
+        self._modes[name] = ModeDefinition(
+            name=name,
+            strategy=strategy,
+            priority=old_mode.priority,
+            description=description if description is not None else old_mode.description,
+        )
+
+        if is_active:
+            await strategy.on_activate()
+
+        if source is not None:
+            self._last_switch_source = source
+
+        old_effective = old_strategy if is_active else None
+        new_effective = strategy if is_active else None
+        logger.info(f"Mode strategy updated: {name}")
+        await self._notify_change(old_effective, new_effective)
+
+    async def async_unregister(self, name: str, *, source: SwitchSource | None = None) -> None:
+        """
+        非同步移除模式（含生命週期管理）
+
+        若模式在活躍狀態（base mode 或 override），先呼叫 on_deactivate()，
+        然後觸發 _notify_change。
+
+        Args:
+            name: 模式名稱
+            source: 切換來源（可選，審計用）
+
+        Raises:
+            KeyError: 模式名稱不存在
+        """
+        if name not in self._modes:
+            raise KeyError(f"Mode '{name}' is not registered")
+
+        mode = self._modes[name]
+        old_strategy = self.effective_strategy
+        is_active = name in self._base_mode_names or name in self._override_names
+
+        if is_active:
+            await mode.strategy.on_deactivate()
+
+        del self._modes[name]
+        if name in self._base_mode_names:
+            self._base_mode_names.remove(name)
+        if name in self._override_names:
+            self._override_names.remove(name)
+
+        if source is not None:
+            self._last_switch_source = source
+
+        new_strategy = self.effective_strategy
+        logger.debug(f"Mode async unregistered: {name}")
         await self._notify_change(old_strategy, new_strategy)
 
     # ---- Override 堆疊 ----
 
-    async def push_override(self, name: str) -> None:
+    async def push_override(self, name: str, *, source: SwitchSource | None = None) -> None:
         """
         推入 override 模式
 
         Args:
             name: 模式名稱
+            source: 切換來源（可選，審計用）
 
         Raises:
             KeyError: 模式名稱不存在
@@ -189,15 +300,18 @@ class ModeManager:
         old_strategy = self.effective_strategy
         self._override_names.append(name)
         new_strategy = self.effective_strategy
+        if source is not None:
+            self._last_switch_source = source
         logger.info(f"Override pushed: {name}")
         await self._notify_change(old_strategy, new_strategy)
 
-    async def pop_override(self, name: str) -> None:
+    async def pop_override(self, name: str, *, source: SwitchSource | None = None) -> None:
         """
         移除指定 override 模式
 
         Args:
             name: 模式名稱
+            source: 切換來源（可選，審計用）
 
         Raises:
             KeyError: 該 override 不在堆疊中
@@ -208,6 +322,8 @@ class ModeManager:
         old_strategy = self.effective_strategy
         self._override_names.remove(name)
         new_strategy = self.effective_strategy
+        if source is not None:
+            self._last_switch_source = source
         logger.info(f"Override popped: {name}")
         await self._notify_change(old_strategy, new_strategy)
 
@@ -275,6 +391,11 @@ class ModeManager:
     def registered_modes(self) -> dict[str, ModeDefinition]:
         """所有已註冊模式"""
         return dict(self._modes)
+
+    @property
+    def last_switch_source(self) -> SwitchSource | None:
+        """最近一次模式切換的來源"""
+        return self._last_switch_source
 
     # ---- 內部 ----
 

@@ -157,6 +157,90 @@ await executor.run()                   # 開始執行迴圈
 
 ---
 
+## required_capabilities（v0.4.0 新增）
+
+覆寫 `required_capabilities` 屬性，宣告策略所需的設備能力。`SystemController` 在 `register_mode()` 時自動驗證，若找不到符合的設備會記錄警告（不拋出例外）：
+
+```python
+from csp_lib.controller.core import Strategy, ExecutionConfig, ExecutionMode, Command, StrategyContext
+from csp_lib.equipment.device.capability import Capability
+
+# 定義需要的 capability（必須與 DeviceRegistry 中的設備 capability 一致）
+SOC_READABLE = Capability("soc_readable", read_slots=("soc",))
+POWER_WRITABLE = Capability("power_writable", write_slots=("p_target", "q_target"))
+
+
+class MyBatteryStrategy(Strategy):
+    """需要 SOC 讀取能力和功率寫入能力的策略"""
+
+    @property
+    def required_capabilities(self) -> tuple[Capability, ...]:
+        """聲明此策略所需的設備能力。SystemController 在 register_mode() 時驗證。"""
+        return (SOC_READABLE, POWER_WRITABLE)
+
+    @property
+    def execution_config(self) -> ExecutionConfig:
+        return ExecutionConfig(mode=ExecutionMode.PERIODIC, interval_seconds=1)
+
+    def execute(self, context: StrategyContext) -> Command:
+        soc = context.soc
+        return Command(p_target=100.0 if soc > 20 else 0.0)
+
+
+# SystemController 的 register_mode() 會自動驗證
+controller.register_mode("battery_ctrl", MyBatteryStrategy(), ModePriority.SCHEDULE)
+# 若無設備具備 soc_readable 能力，會記錄警告但仍然完成註冊
+```
+
+---
+
+## 策略插件發現機制（v0.4.0 新增）
+
+使用 `discover_strategies()` 自動掃描已安裝的第三方策略插件。插件透過 `pyproject.toml` 的 entry_points 機制註冊：
+
+### 第三方套件發布策略
+
+在你的套件 `pyproject.toml` 中新增 entry_points：
+
+```toml
+[project.entry-points."csp_lib.strategies"]
+my_pq = "my_package.strategies:CustomPQStrategy"
+my_island = "my_package.strategies:CustomIslandStrategy"
+```
+
+### 掃描已安裝策略
+
+```python
+from csp_lib.controller.discovery import discover_strategies, ENTRY_POINT_GROUP
+
+# 自動掃描所有已安裝的策略插件
+descriptors = discover_strategies()
+for desc in descriptors:
+    print(f"Strategy: {desc.name}")
+    print(f"  Class:   {desc.strategy_class.__name__}")
+    print(f"  Module:  {desc.module}")
+    print(f"  Desc:    {desc.description}")
+
+# 也可掃描自訂群組
+custom_plugins = discover_strategies(group="myapp.strategies")
+```
+
+```python
+# StrategyDescriptor 欄位
+from csp_lib.controller.discovery import StrategyDescriptor
+
+desc: StrategyDescriptor
+desc.name            # entry point 名稱（str）
+desc.strategy_class  # 策略類別（type[Strategy]）
+desc.module          # 策略所在模組路徑（str）
+desc.description     # 策略說明（來自 docstring 第一行）
+```
+
+> [!tip] 自動整合
+> 可結合 `discover_strategies()` 與 `SystemController.register_mode()` 實現插件式策略熱載入。
+
+---
+
 ## 相關頁面
 
 - [[Control Strategy Setup]] - 內建策略總覽

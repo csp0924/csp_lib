@@ -16,6 +16,20 @@ source: csp_lib/manager/base.py
 
 內部維護一個 `dict[str, list[Callable]]`，以 `device_id` 為 key 管理各設備的取消訂閱 callback。
 
+## AsyncRepository Protocol
+
+`csp_lib/manager/base.py` 同時定義了 `AsyncRepository` — 所有 Repository 介面的共同基底，定義健康檢查方法。
+
+```python
+@runtime_checkable
+class AsyncRepository(Protocol):
+    async def health_check(self) -> bool:
+        """檢查 Repository 連線是否正常"""
+        ...
+```
+
+`AlarmRepository`、`CommandRepository`、`ScheduleRepository` 皆符合此 Protocol。
+
 ## API
 
 | 方法 | 說明 |

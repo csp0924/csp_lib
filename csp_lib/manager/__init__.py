@@ -19,7 +19,7 @@ from .alarm import (
     AlarmType,
     MongoAlarmRepository,
 )
-from .base import DeviceEventSubscriber
+from .base import AsyncRepository, DeviceEventSubscriber
 from .command import (
     ActionCommand,
     CommandAdapterConfig,
@@ -53,6 +53,7 @@ from .unified import UnifiedConfig, UnifiedDeviceManager
 
 __all__ = [
     # Base
+    "AsyncRepository",
     "DeviceEventSubscriber",
     # Alarm
     "AlarmPersistenceConfig",

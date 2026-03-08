@@ -18,6 +18,9 @@ redis = [
 modbus = [
     "pymodbus>=3.0.0",
 ]
+can = [
+    "python-can>=4.0",
+]
 monitor = [
     "psutil>=5.9.0",
 ]
@@ -31,7 +34,7 @@ gui = [
     "python-multipart"
 ]
 all = [
-    "csp0924_lib[mongo,redis,modbus,monitor,cluster,gui]",
+    "csp0924_lib[mongo,redis,modbus,can,monitor,cluster,gui]",
 ]
 
 # =============== Build System (Cython Binary Distribution) ===============

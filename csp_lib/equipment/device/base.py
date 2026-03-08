@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable, Sequence
 
 from csp_lib.core.errors import CommunicationError, ConfigurationError, DeviceConnectionError
@@ -26,22 +27,53 @@ from .config import DeviceConfig
 from .events import (
     EVENT_CONNECTED,
     EVENT_DISCONNECTED,
+    EVENT_POINT_TOGGLED,
     EVENT_READ_COMPLETE,
     EVENT_READ_ERROR,
+    EVENT_RECONFIGURED,
+    EVENT_RESTARTED,
     EVENT_VALUE_CHANGE,
     AsyncHandler,
     ConnectedPayload,
     DeviceEventEmitter,
     DisconnectPayload,
+    PointToggledPayload,
     ReadCompletePayload,
     ReadErrorPayload,
+    ReconfiguredPayload,
+    RestartedPayload,
     ValueChangePayload,
 )
 from .mixins import AlarmMixin, WriteMixin
 
 if TYPE_CHECKING:
-    from csp_lib.equipment.core import ReadPoint, WritePoint
+    from csp_lib.equipment.core import PointMetadata, ReadPoint, WritePoint
     from csp_lib.modbus.clients.base import AsyncModbusClientBase
+    from csp_lib.modbus.types import ModbusDataType
+
+
+@dataclass(frozen=True, slots=True)
+class PointInfo:
+    """點位詳細資訊"""
+
+    name: str
+    address: int
+    data_type: ModbusDataType
+    direction: str  # "read" | "write" | "read_write"
+    enabled: bool
+    read_group: str
+    metadata: PointMetadata | None
+
+
+@dataclass(frozen=True, slots=True)
+class ReconfigureSpec:
+    """重新配置規格"""
+
+    always_points: Sequence[ReadPoint] | None = None
+    rotating_points: Sequence[Sequence[ReadPoint]] | None = None
+    write_points: Sequence[WritePoint] | None = None
+    alarm_evaluators: Sequence[AlarmEvaluator] | None = None
+    capability_bindings: Sequence[CapabilityBinding] | None = None
 
 
 class AsyncModbusDevice(AlarmMixin, WriteMixin):
@@ -80,6 +112,12 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
         self._config = config
         self._client = client
 
+        # 儲存原始點位定義
+        self._read_points_always: tuple[ReadPoint, ...] = tuple(always_points)
+        self._read_points_rotating: tuple[tuple[ReadPoint, ...], ...] = tuple(
+            tuple(pts) for pts in rotating_points
+        )
+
         # 建立排程器（自動分組）
         self._grouper = PointGrouper()
         self._scheduler = ReadScheduler(
@@ -115,6 +153,9 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
         self._capability_bindings: dict[str, CapabilityBinding] = {
             b.capability.name: b for b in capability_bindings
         }
+
+        # 點位開關
+        self._disabled_points: set[str] = set()
 
         # 事件
         self._emitter = DeviceEventEmitter()
@@ -230,6 +271,185 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
         """動態移除能力綁定（執行期）"""
         name = capability.name if isinstance(capability, Capability) else capability
         self._capability_bindings.pop(name, None)
+
+    # =============== Point Toggle ===============
+
+    def enable_point(self, name: str) -> None:
+        """啟用點位"""
+        if name not in self.all_point_names:
+            raise KeyError(f"點位 '{name}' 不存在")
+        self._disabled_points.discard(name)
+        self._emitter.emit(
+            EVENT_POINT_TOGGLED,
+            PointToggledPayload(device_id=self._config.device_id, point_name=name, enabled=True),
+        )
+
+    def disable_point(self, name: str) -> None:
+        """停用點位（讀取值不更新、告警不評估、寫入被拒）"""
+        if name not in self.all_point_names:
+            raise KeyError(f"點位 '{name}' 不存在")
+        self._disabled_points.add(name)
+        self._emitter.emit(
+            EVENT_POINT_TOGGLED,
+            PointToggledPayload(device_id=self._config.device_id, point_name=name, enabled=False),
+        )
+
+    def is_point_enabled(self, name: str) -> bool:
+        """檢查點位是否啟用"""
+        return name not in self._disabled_points
+
+    # =============== Point Query ===============
+
+    @property
+    def read_points(self) -> tuple[ReadPoint, ...]:
+        """所有固定讀取點位"""
+        return self._read_points_always
+
+    @property
+    def rotating_read_points(self) -> tuple[tuple[ReadPoint, ...], ...]:
+        """所有輪替讀取點位"""
+        return self._read_points_rotating
+
+    @property
+    def write_point_names(self) -> list[str]:
+        """所有寫入點位名稱"""
+        return list(self._write_points.keys())
+
+    @property
+    def all_point_names(self) -> set[str]:
+        """所有點位名稱（讀+寫）"""
+        names = {p.name for p in self._read_points_always}
+        for group in self._read_points_rotating:
+            names.update(p.name for p in group)
+        names.update(self._write_points.keys())
+        return names
+
+    @property
+    def disabled_points(self) -> frozenset[str]:
+        """目前被停用的點位"""
+        return frozenset(self._disabled_points)
+
+    def get_point_info(self) -> list[PointInfo]:
+        """取得所有點位的詳細資訊（含啟用狀態）"""
+        infos: list[PointInfo] = []
+        write_names = set(self._write_points.keys())
+
+        # 讀取點位
+        for point in self._read_points_always:
+            direction = "read_write" if point.name in write_names else "read"
+            infos.append(
+                PointInfo(
+                    name=point.name,
+                    address=point.address,
+                    data_type=point.data_type,
+                    direction=direction,
+                    enabled=point.name not in self._disabled_points,
+                    read_group=point.read_group,
+                    metadata=point.metadata,
+                )
+            )
+
+        seen_names = {p.name for p in self._read_points_always}
+        for group in self._read_points_rotating:
+            for point in group:
+                if point.name in seen_names:
+                    continue
+                seen_names.add(point.name)
+                direction = "read_write" if point.name in write_names else "read"
+                infos.append(
+                    PointInfo(
+                        name=point.name,
+                        address=point.address,
+                        data_type=point.data_type,
+                        direction=direction,
+                        enabled=point.name not in self._disabled_points,
+                        read_group=point.read_group,
+                        metadata=point.metadata,
+                    )
+                )
+
+        # 僅寫入的點位
+        for name, wp in self._write_points.items():
+            if name not in seen_names:
+                infos.append(
+                    PointInfo(
+                        name=wp.name,
+                        address=wp.address,
+                        data_type=wp.data_type,
+                        direction="write",
+                        enabled=wp.name not in self._disabled_points,
+                        read_group="",
+                        metadata=wp.metadata,
+                    )
+                )
+
+        return infos
+
+    # =============== Reconfigure ===============
+
+    async def reconfigure(self, spec: ReconfigureSpec) -> None:
+        """
+        動態重新配置點位
+
+        Args:
+            spec: 重新配置規格，None 欄位表示保持不變
+        """
+        was_running = self.is_running
+        if was_running:
+            await self.stop()
+
+        changed_sections: list[str] = []
+
+        try:
+            if spec.always_points is not None or spec.rotating_points is not None:
+                if spec.always_points is not None:
+                    self._read_points_always = tuple(spec.always_points)
+                    changed_sections.append("always_points")
+                if spec.rotating_points is not None:
+                    self._read_points_rotating = tuple(tuple(pts) for pts in spec.rotating_points)
+                    changed_sections.append("rotating_points")
+                self._scheduler.update_groups(
+                    always_groups=self._grouper.group(list(self._read_points_always)),
+                    rotating_groups=[self._grouper.group(list(pts)) for pts in self._read_points_rotating],
+                )
+
+            if spec.write_points is not None:
+                self._write_points = {wp.name: wp for wp in spec.write_points}
+                changed_sections.append("write_points")
+
+            if spec.alarm_evaluators is not None:
+                old_states = self._alarm_manager.export_states()
+                self._alarm_manager = AlarmStateManager()
+                self._alarm_evaluators = list(spec.alarm_evaluators)
+                for evaluator in self._alarm_evaluators:
+                    self._alarm_manager.register_alarms(evaluator.get_alarms())
+                self._alarm_manager.import_states(old_states)
+                changed_sections.append("alarm_evaluators")
+
+            if spec.capability_bindings is not None:
+                self._capability_bindings = {b.capability.name: b for b in spec.capability_bindings}
+                changed_sections.append("capability_bindings")
+
+            # 清理不再存在的 disabled_points
+            valid_names = self.all_point_names
+            self._disabled_points = self._disabled_points & valid_names
+        finally:
+            if was_running:
+                await self.start()
+
+        self._emitter.emit(
+            EVENT_RECONFIGURED,
+            ReconfiguredPayload(device_id=self._config.device_id, changed_sections=tuple(changed_sections)),
+        )
+
+    async def restart(self) -> None:
+        """重啟讀取迴圈"""
+        await self.stop()
+        await self.start()
+        self._emitter.emit(
+            EVENT_RESTARTED,
+            RestartedPayload(device_id=self._config.device_id),
+        )
 
     # =============== Health ===============
 
@@ -500,8 +720,10 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
             )
 
     async def _process_values(self, values: dict[str, Any]) -> None:
-        """處理讀取到的值，發送變更事件"""
+        """處理讀取到的值，發送變更事件（跳過 disabled 點位）"""
         for name, new_value in values.items():
+            if name in self._disabled_points:
+                continue
             old_value = self._latest_values.get(name)
             if old_value != new_value:
                 self._emitter.emit(
@@ -513,7 +735,7 @@ class AsyncModbusDevice(AlarmMixin, WriteMixin):
                         new_value=new_value,
                     ),
                 )
-        self._latest_values.update(values)
+            self._latest_values[name] = new_value
 
     # =============== Magic Methods =========
 

@@ -54,6 +54,7 @@ StrategyExecutor ─── Strategy.execute(context) ──→ Command
 | [[ScheduleStrategy]] | 排程策略 (依時間執行) | PERIODIC 1s |
 | [[StopStrategy]] | 停機 (P=0, Q=0) | PERIODIC 1s |
 | [[BypassStrategy]] | 直通模式 (維持 last_command) | TRIGGERED |
+| [[LoadSheddingStrategy]] | 階段性負載卸載（離網場景） | PERIODIC 5s |
 
 ### 執行引擎
 
@@ -66,11 +67,19 @@ StrategyExecutor ─── Strategy.execute(context) ──→ Command
 | 文件 | 說明 |
 |------|------|
 | [[ModeManager]] | 模式註冊與優先權切換 |
+| [[ScheduleModeController]] | 排程模式控制協定，橋接 ScheduleService (L5) 與 SystemController (L6) |
+| [[EventDrivenOverride]] | 系統事件驅動的自動 Override 協定與內建實現 |
 | [[ProtectionGuard]] | 保護規則鏈 (Chain of Responsibility) |
 | [[SOCProtection]] | SOC 高低限保護與警戒區漸進限制 |
 | [[ReversePowerProtection]] | 表後逆送保護 |
 | [[SystemAlarmProtection]] | 系統告警強制停機保護 |
 | [[CascadingStrategy]] | 多策略級聯功率分配 (delta-based clamping) |
+
+### 策略發現
+
+| 文件 | 說明 |
+|------|------|
+| [[StrategyDiscovery]] | 策略插件自動發現機制（entry_points） |
 
 ### 輔助服務
 

@@ -56,8 +56,10 @@ class AlarmMixin:
             await self._emitter.emit_await(EVENT_ALARM_CLEARED, payload)
 
     async def _evaluate_alarm(self, values: dict[str, Any]) -> None:
-        """評估告警"""
+        """評估告警（跳過 disabled 點位）"""
         for evaluator in self._alarm_evaluators:
+            if evaluator.point_name in self._disabled_points:
+                continue
             point_value = values.get(evaluator.point_name)
             if point_value is None:
                 continue
@@ -86,6 +88,16 @@ class WriteMixin:
         """寫入點位值"""
         device_id = getattr(self._config, "device_id", "?")
         logger.debug(f"[{device_id}] write 開始: point={name}, value={value}, verify={verify}")
+
+        # 檢查點位是否被停用
+        if name in self._disabled_points:
+            logger.warning(f"[{device_id}] write 點位已停用: {name}")
+            return WriteResult(
+                status=WriteStatus.VALIDATION_FAILED,
+                point_name=name,
+                value=value,
+                error_message=f"點位 '{name}' 已停用",
+            )
 
         point = self._write_points.get(name)
         if point is None:

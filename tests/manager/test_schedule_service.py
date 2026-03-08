@@ -18,7 +18,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from csp_lib.controller.strategies import ScheduleStrategy
 from csp_lib.manager.schedule.config import ScheduleServiceConfig
 from csp_lib.manager.schedule.factory import StrategyFactory
 from csp_lib.manager.schedule.schema import ScheduleRule, ScheduleType, StrategyType
@@ -86,34 +85,34 @@ class TestPollOnce:
         factory = MagicMock(spec=StrategyFactory)
         factory.create = MagicMock(return_value=mock_strategy)
 
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
         await service._poll_once()
 
         factory.create.assert_called_once_with(StrategyType.PQ, {"p": 100})
-        schedule.update_schedule.assert_called_once_with(mock_strategy)
+        mode_controller.activate_schedule_mode.assert_called_once()
+        call_args = mode_controller.activate_schedule_mode.call_args
+        assert call_args.args[0] is mock_strategy
         assert service.current_rule_key is not None
 
     @pytest.mark.asyncio
     async def test_no_rules_switches_to_fallback(self):
-        """無匹配規則且之前有規則時應切換至 fallback"""
+        """無匹配規則且之前有規則時應停用排程模式"""
         config = _make_config()
         repo = AsyncMock()
         repo.find_active_rules = AsyncMock(return_value=[])
 
         factory = MagicMock(spec=StrategyFactory)
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
         # 模擬之前有活躍規則
         service._current_rule_key = "previous_key"
 
         await service._poll_once()
 
-        schedule.update_schedule.assert_called_once_with(None)
+        mode_controller.deactivate_schedule_mode.assert_called_once()
         assert service.current_rule_key is None
 
     @pytest.mark.asyncio
@@ -124,13 +123,13 @@ class TestPollOnce:
         repo.find_active_rules = AsyncMock(return_value=[])
 
         factory = MagicMock(spec=StrategyFactory)
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
         await service._poll_once()
 
-        schedule.update_schedule.assert_not_called()
+        mode_controller.activate_schedule_mode.assert_not_called()
+        mode_controller.deactivate_schedule_mode.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_same_rule_dedup(self):
@@ -144,18 +143,17 @@ class TestPollOnce:
         factory = MagicMock(spec=StrategyFactory)
         factory.create = MagicMock(return_value=mock_strategy)
 
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
 
         # First call - should switch
         await service._poll_once()
-        assert schedule.update_schedule.call_count == 1
+        assert mode_controller.activate_schedule_mode.call_count == 1
 
         # Second call - same rule, should skip
         await service._poll_once()
-        assert schedule.update_schedule.call_count == 1  # Still 1
+        assert mode_controller.activate_schedule_mode.call_count == 1  # Still 1
 
     @pytest.mark.asyncio
     async def test_factory_failure_keeps_current(self):
@@ -168,15 +166,14 @@ class TestPollOnce:
         factory = MagicMock(spec=StrategyFactory)
         factory.create = MagicMock(return_value=None)  # 建立失敗
 
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
         service._current_rule_key = "old_key"
 
         await service._poll_once()
 
-        schedule.update_schedule.assert_not_called()
+        mode_controller.activate_schedule_mode.assert_not_called()
         assert service.current_rule_key == "old_key"  # 保持不變
 
     @pytest.mark.asyncio
@@ -194,10 +191,9 @@ class TestPollOnce:
         factory = MagicMock(spec=StrategyFactory)
         factory.create = MagicMock(return_value=mock_strategy)
 
-        schedule = ScheduleStrategy()
-        schedule.update_schedule = AsyncMock()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
         await service._poll_once()
 
         factory.create.assert_called_once_with(StrategyType.PQ, {"p": 200})
@@ -214,9 +210,9 @@ class TestLifecycle:
         repo.find_active_rules = AsyncMock(return_value=[])
 
         factory = MagicMock(spec=StrategyFactory)
-        schedule = ScheduleStrategy()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
 
         await service.start()
         assert service._task is not None
@@ -233,9 +229,9 @@ class TestLifecycle:
         repo.find_active_rules = AsyncMock(return_value=[])
 
         factory = MagicMock(spec=StrategyFactory)
-        schedule = ScheduleStrategy()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
 
         async with service:
             assert service._task is not None
@@ -294,9 +290,9 @@ class TestErrorResilience:
         repo.find_active_rules = AsyncMock(side_effect=Exception("DB error"))
 
         factory = MagicMock(spec=StrategyFactory)
-        schedule = ScheduleStrategy()
+        mode_controller = AsyncMock()
 
-        service = ScheduleService(config, repo, factory, schedule)
+        service = ScheduleService(config, repo, factory, mode_controller)
 
         # _poll_once 應拋出例外（由 _poll_loop 捕獲）
         with pytest.raises(Exception, match="DB error"):

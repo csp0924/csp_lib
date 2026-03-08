@@ -3,13 +3,13 @@ tags: [type/concept, status/complete]
 ---
 # Layered Architecture
 
-> csp_lib 六層分層架構詳解
+> csp_lib 八層分層架構詳解
 
 ## 架構總覽
 
 csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公開介面，不跨層直接存取，實現良好的關注點分離。
 
-**一句話總結**：Modbus 負責「聽懂設備」，Equipment 負責「抽象設備」，Controller 負責「做出決策」，Integration 負責「串接一切」，Manager 負責「記錄和同步」。
+**一句話總結**：Core 提供基礎設施，Modbus/CAN 負責「聽懂設備」，Equipment 負責「抽象設備」，Controller 負責「做出決策」，Integration 負責「串接一切」，Manager 負責「記錄和同步」。
 
 ## 架構圖
 
@@ -20,46 +20,48 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 │  用途：開發測試、整合驗證，模擬完整微電網環境                                        │
 └──────────────────────────────────┬──────────────────────────────────────────────┘
                                    │ Modbus TCP (模擬設備通訊)
-┌──────────────────────────────────▼──────────────────────────────────────────────┐
-│                              Layer 1: Modbus 通訊層                              │
+┌──────────────────────────────────┬──────────────────────────────────────────────┐
+│         Layer 1a: Modbus 通訊層   │         Layer 1b: CAN Bus 通訊層              │
+│                                  │                                               │
+│  ┌──────────────┐ ┌───────────┐  │  ┌──────────────────┐  ┌──────────────────┐  │
+│  │ ModbusCodec   │ │ ModbusData│  │  │ AsyncCANClientBase│  │ CANBusConfig     │  │
+│  │ encode/decode │ │ Int16..   │  │  │ (ABC)            │  │ CANFrame         │  │
+│  │               │ │ Float64   │  │  │ └─PythonCANClient│  │                  │  │
+│  └──────────────┘ └───────────┘  │  └──────────────────┘  └──────────────────┘  │
+│  ┌────────────────────────────┐  │                                               │
+│  │ AsyncModbusClientBase (ABC)│  │  需安裝：csp0924_lib[can]                      │
+│  │ ├─ PymodbusTcpClient       │  │  第三方：python-can>=4.0                       │
+│  │ ├─ PymodbusRtuClient       │  │                                               │
+│  │ └─ SharedPymodbusTcpClient │  │                                               │
+│  └────────────────────────────┘  │                                               │
+│                                  │                                               │
+│  職責：暫存器層級的二進位編解碼       │  職責：CAN 幀收發、Bus 連線管理                  │
+│  通訊協定連線管理                   │                                               │
+└──────────────────┬───────────────┴─────────────────────┬─────────────────────────┘
+                   │ Modbus 連線                           │ CAN 連線
+┌──────────────────▼───────────────────────────────────────▼─────────────────────────┐
+│                            Layer 2: Equipment 設備層                               │
 │                                                                                 │
-│  ┌─────────────┐  ┌──────────────────┐  ┌─────────────────────────────────┐    │
-│  │ ModbusCodec  │  │ ModbusDataType   │  │ AsyncModbusClientBase (ABC)     │    │
-│  │ encode/decode│  │ Int16..Float64   │  │ ├─ PymodbusTcpClient            │    │
-│  │              │  │ DynamicInt/UInt   │  │ ├─ PymodbusRtuClient (共線鎖)   │    │
-│  │              │  │ ModbusString      │  │ └─ SharedPymodbusTcpClient      │    │
-│  └─────────────┘  └──────────────────┘  └─────────────────────────────────┘    │
-│                                                                                 │
-│  職責：暫存器層級的二進位編解碼、通訊協定連線管理                                      │
-└──────────────────────────────────┬──────────────────────────────────────────────┘
-                                   │
-┌──────────────────────────────────▼──────────────────────────────────────────────┐
-│                            Layer 2: Equipment 設備層                             │
-│                                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐                   │
-│  │              AsyncModbusDevice (核心設備類別)               │                   │
-│  │  ┌─ AlarmMixin ─────────────────────────────────────┐    │                   │
-│  │  │  AlarmEvaluator → AlarmStateManager → AlarmEvent  │    │                   │
-│  │  └──────────────────────────────────────────────────┘    │                   │
-│  │  ┌─ WriteMixin ─────────────────────────────┐            │                   │
-│  │  │  ValidatedWriter → encode → write → verify│            │                   │
-│  │  └──────────────────────────────────────────┘            │                   │
-│  │  ┌─ Transport ──────────────────────────────────┐        │                   │
-│  │  │  ReadScheduler → PointGrouper → GroupReader   │        │                   │
-│  │  │  (固定+輪替)     (暫存器合併)   (批次解碼)     │        │                   │
-│  │  └──────────────────────────────────────────────┘        │                   │
-│  │  ┌─ Data Pipeline ──────────────────────────────┐        │                   │
-│  │  │  ReadPoint → ProcessingPipeline → Transform   │        │                   │
-│  │  │              (Scale, BitExtract, Enum...)      │        │                   │
-│  │  └──────────────────────────────────────────────┘        │                   │
-│  │  ┌─ Events ─────────────────────────────────────┐        │                   │
-│  │  │  DeviceEventEmitter (async Queue-based)       │        │                   │
-│  │  │  9 events: connected, read_complete,          │        │                   │
-│  │  │  value_change, alarm_triggered, write_complete…│        │                   │
-│  │  └──────────────────────────────────────────────┘        │                   │
-│  └──────────────────────────────────────────────────────────┘                   │
-│                                                                                 │
-│  職責：設備抽象、週期讀取、資料轉換、告警偵測、事件發射                                  │
+│  ┌───────────────────────────────────────┐  ┌──────────────────────────────┐    │
+│  │     AsyncModbusDevice (Modbus 設備)    │  │  AsyncCANDevice (CAN 設備)    │    │
+│  │  ┌─ AlarmMixin ──────────────────┐    │  │  ┌─ RxFrame 解析 ──────────┐   │    │
+│  │  │  AlarmEvaluator               │    │  │  │  CANRxFrameDefinition    │   │    │
+│  │  │  → AlarmStateManager          │    │  │  │  → 解碼 + 事件發射        │   │    │
+│  │  └───────────────────────────────┘    │  │  └─────────────────────────┘   │    │
+│  │  ┌─ WriteMixin ───────────────────┐   │  │  ┌─ PeriodicSendScheduler ─┐   │    │
+│  │  │  ValidatedWriter → write       │   │  │  │  週期 CAN 幀發送排程      │   │    │
+│  │  └───────────────────────────────┘   │  │  └─────────────────────────┘   │    │
+│  │  ┌─ Transport ────────────────────┐  │  └──────────────────────────────┘    │
+│  │  │  ReadScheduler → PointGrouper  │  │                                        │
+│  │  │  → GroupReader (批次解碼)       │  │  ┌─ DeviceProtocol (Protocol) ──────┐  │
+│  │  └────────────────────────────────┘  │  │  @runtime_checkable 設備介面契約  │  │
+│  │  ┌─ Data Pipeline ───────────────┐   │  └──────────────────────────────────┘  │
+│  │  │  ReadPoint → ProcessingPipeline│  │                                        │
+│  │  │  → Transform (Scale, Enum...)  │  │  共用：DeviceEventEmitter (9 種事件)    │
+│  │  └────────────────────────────────┘  │                                        │
+│  └───────────────────────────────────────┘                                       │
+│                                                                                  │
+│  職責：設備抽象、週期讀取、資料轉換、告警偵測、事件發射                                   │
 └──────────────┬─────────────────────────────────┬────────────────────────────────┘
                │ 事件 (read_complete, alarm...)   │ latest_values
 ┌──────────────▼─────────────────────────────────▼────────────────────────────────┐
@@ -104,15 +106,28 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 │  │ Strategy (ABC)                                        │                       │
 │  │  execute(StrategyContext) → Command(p_target, q_target)│                       │
 │  ├──────────────────────────────────────────────────────┤                       │
-│  │ PQModeStrategy     │ 定功率輸出 (P=500kW, Q=100kVar)  │                       │
-│  │ PVSmoothStrategy   │ 太陽能平滑化 (ramp rate 限制)     │                       │
-│  │ QVStrategy         │ 電壓-無效功率下垂控制              │                       │
-│  │ FPStrategy         │ 頻率-有效功率響應 (AFC 6 點曲線)   │                       │
-│  │ IslandModeStrategy │ 孤島模式 (斷路器開/合)             │                       │
-│  │ ScheduleStrategy   │ 排程切換 (動態換策略)              │                       │
-│  │ StopStrategy       │ 停機 (P=0, Q=0)                  │                       │
-│  │ BypassStrategy     │ 旁路 (保持上一次命令)              │                       │
-│  │ CascadingStrategy  │ 多策略功率級聯分配                 │                       │
+│  │ PQModeStrategy      │ 定功率輸出 (P=500kW, Q=100kVar)  │                      │
+│  │ PVSmoothStrategy    │ 太陽能平滑化 (ramp rate 限制)     │                      │
+│  │ QVStrategy          │ 電壓-無效功率下垂控制              │                      │
+│  │ FPStrategy          │ 頻率-有效功率響應 (AFC 6 點曲線)   │                      │
+│  │ IslandModeStrategy  │ 孤島模式 (斷路器開/合)             │                      │
+│  │ ScheduleStrategy    │ 排程切換 (動態換策略)              │                      │
+│  │ StopStrategy        │ 停機 (P=0, Q=0)                  │                      │
+│  │ BypassStrategy      │ 旁路 (保持上一次命令)              │                      │
+│  │ CascadingStrategy   │ 多策略功率級聯分配                 │                      │
+│  │ LoadSheddingStrategy│ 階段性負載卸載 (離網場景)           │                      │
+│  └──────────────────────────────────────────────────────┘                       │
+│                                                                                  │
+│  ┌──────────────────────────────────────────────────────┐                       │
+│  │ EventDrivenOverride (Protocol) — 事件驅動覆蓋協定     │                       │
+│  │  AlarmStopOverride  │ 告警自動停機                    │                       │
+│  │  ContextKeyOverride │ 通用 context key 觸發            │                       │
+│  └──────────────────────────────────────────────────────┘                       │
+│                                                                                 │
+│  ┌──────────────────────────────────────────────────────┐                       │
+│  │ ScheduleModeController (Protocol) — 排程模式控制協定  │                       │
+│  │  橋接 ScheduleService (L5) 與 SystemController (L6)  │                       │
+│  │  activate_schedule_mode() / deactivate_schedule_mode()│                      │
 │  └──────────────────────────────────────────────────────┘                       │
 │                                                                                 │
 │  ┌──────────────────────────────────────────────────────┐                       │
@@ -152,21 +167,39 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 
 ## 各層詳解
 
-### Layer 1: Modbus 通訊層
+### Layer 1a: Modbus 通訊層
 
 **對應模組**：[[_MOC Modbus]]
 
-最底層，負責與物理設備進行暫存器層級的二進位通訊。主要元件：
+最底層之一，負責與物理設備進行暫存器層級的二進位通訊。主要元件：
 
 - [[ModbusCodec]] — 編解碼引擎，支援多種位元組序
 - [[ModbusDataType]] — 資料型別抽象（[[Int16]], [[Float32]], [[ModbusString]] 等）
 - [[AsyncModbusClientBase]] — 非同步客戶端 ABC，實作包括 TCP、RTU、共享 TCP
+- [[ModbusRequestQueue]] — 優先序請求佇列，含斷路器防護
+
+需安裝：`csp0924_lib[modbus]`
+
+### Layer 1b: CAN Bus 通訊層
+
+**對應模組**：[[_MOC CAN]]
+
+與 Modbus 層並列的通訊層，負責 CAN Bus 幀收發。主要元件：
+
+- [[CANBusConfig]] — CAN Bus 連線配置（interface, channel, bitrate）
+- [[CANFrame]] — CAN 幀資料結構（arbitration_id, data bytes）
+- [[AsyncCANClientBase]] — CAN 客戶端 ABC
+- [[PythonCANClient]] — 基於 `python-can` 的非同步實作
+
+需安裝：`csp0924_lib[can]`
 
 ### Layer 2: Equipment 設備層
 
 **對應模組**：[[_MOC Equipment]]
 
-建構於 Modbus 層之上，提供完整的設備抽象。核心類別 [[AsyncModbusDevice]] 整合了：
+建構於通訊層之上，提供完整的設備抽象。v0.4.0 新增 CAN 設備支援。
+
+**[[AsyncModbusDevice]]** 整合了：
 
 - **點位系統**：[[ReadPoint]]、[[WritePoint]] 定義設備可讀寫的資料點
 - **資料轉換**：[[ProcessingPipeline]] 串接多種 [[Transform]]（縮放、位元萃取、列舉映射等）
@@ -174,17 +207,27 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 - **傳輸排程**：[[ReadScheduler]]（固定 + 輪替）、[[PointGrouper]]（暫存器合併）、[[GroupReader]]（批次讀取）
 - **事件系統**：[[DeviceEventEmitter]]（9 種非同步事件），詳見 [[Event System]]
 
+**[[AsyncCANDevice]]**（v0.4.0 新增）整合了：
+
+- **幀定義**：[[CANRxFrameDefinition]] 宣告式 RX 幀映射
+- **週期發送**：[[PeriodicSendScheduler]] 管理週期 CAN 幀發送
+- **事件系統**：與 AsyncModbusDevice 共用 [[DeviceEventEmitter]]
+
+**[[DeviceProtocol]]**（v0.4.0 新增）：`@runtime_checkable Protocol`，定義通用設備介面契約，讓 Integration 層可以統一處理 Modbus 與 CAN 設備。
+
 ### Layer 3: Integration 整合層
 
 **對應模組**：[[_MOC Integration]]
 
 膠水層，負責將設備層的資料轉換為控制策略所需的上下文，並將策略輸出路由回設備：
 
-- [[DeviceRegistry]] — Trait-based 雙索引設備查詢
-- [[ContextBuilder]] — 聚合設備數據，建構 [[StrategyContext]]
-- [[CommandRouter]] — 將 [[Command]] 路由到目標設備（單播/廣播）
-- [[SystemController]] — 完整系統控制器，整合 [[ModeManager]]、[[ProtectionGuard]]、[[CascadingStrategy]]
+- [[DeviceRegistry]] — Trait-based 雙索引設備查詢（v0.4.0 支援 Capability-based 查詢）
+- [[ContextBuilder]] — 聚合設備數據，建構 [[StrategyContext]]（支援 [[CapabilityContextMapping]]）
+- [[CommandRouter]] — 將 [[Command]] 路由到目標設備（支援 [[CapabilityCommandMapping]]）
+- [[SystemController]] — 完整系統控制器，整合 [[ModeManager]]、[[ProtectionGuard]]、[[CascadingStrategy]]（v0.4.0 支援 [[EventDrivenOverride]]、實作 [[ScheduleModeController]] Protocol）
 - [[GroupControllerManager]] — 多群組控制器管理，為每組設備建立獨立 [[SystemController]]
+- [[PowerDistributor]] — 功率分配器抽象（v0.4.0），含 EqualDistributor、ProportionalDistributor、SOCBalancingDistributor
+- [[HeartbeatService]] — 心跳寫入服務（v0.4.0），支援 TOGGLE / INCREMENT / CONSTANT 模式
 
 ### Layer 4: Controller 控制策略層
 
@@ -203,8 +246,17 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 | [[StopStrategy]] | 停機 |
 | [[BypassStrategy]] | 旁路 |
 | [[CascadingStrategy]] | 多策略功率級聯分配 |
+| [[LoadSheddingStrategy]] | 階段性負載卸載（v0.4.0） |
 
 保護規則鏈：[[SOCProtection]] -> [[ReversePowerProtection]] -> [[SystemAlarmProtection]]
+
+v0.4.0 新增事件驅動覆蓋機制：
+- [[EventDrivenOverride]] — `@runtime_checkable Protocol`，條件驅動的自動 override
+- [[AlarmStopOverride]] — 告警自動停機（內建實現）
+- [[ContextKeyOverride]] — 通用 context key 觸發（內建實現）
+
+v0.4.0 新增排程模式橋接協定：
+- [[ScheduleModeController]] — `@runtime_checkable Protocol`，供 ScheduleService (L5) 驅動 SystemController (L6) 的排程模式切換，避免 Manager 層直接依賴 Integration 層
 
 ### Layer 5: Manager 管理層
 
@@ -218,6 +270,19 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 - [[DataUploadManager]] — 讀取數據批次上傳
 - [[WriteCommandManager]] — 外部命令執行與審計
 - [[StateSyncManager]] — Redis 即時狀態同步
+- [[ScheduleService]] — 排程服務（v0.4.0），透過 [[ScheduleModeController]] Protocol 驅動策略切換
+
+### Layer 0: Core 基礎層
+
+**對應模組**：[[_MOC Core]]
+
+最底層基礎設施，所有層均可依賴：
+
+- `get_logger` / `configure_logging` — centralized loguru 日誌
+- [[AsyncLifecycleMixin]] — 統一 async 生命週期管理（start/stop/async with）
+- [[HealthCheckable]] / [[HealthReport]] — 健康檢查協定
+- 錯誤階層：`DeviceError` → `DeviceConnectionError`、`CommunicationError`、`AlarmError`、`ConfigurationError`
+- [[CircuitBreaker]] / [[CircuitState]] / [[RetryPolicy]] — 通用韌性模式（v0.4.0 從 Modbus 層提升至 Core）
 
 ### 儲存層
 

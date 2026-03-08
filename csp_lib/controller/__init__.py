@@ -14,6 +14,7 @@ from .core import (
     StrategyContext,
     SystemBase,
 )
+from .discovery import ENTRY_POINT_GROUP, StrategyDescriptor, discover_strategies
 from .executor import ComputeOffloader, StrategyExecutor
 from .protocol import GridControllerBase, GridControllerProtocol
 from .services import PVDataService
@@ -23,6 +24,9 @@ from .strategies import (
     FPStrategy,
     IslandModeConfig,
     IslandModeStrategy,
+    LoadCircuitProtocol,
+    LoadSheddingConfig,
+    LoadSheddingStrategy,
     PQModeConfig,
     PQModeStrategy,
     PVSmoothConfig,
@@ -30,12 +34,19 @@ from .strategies import (
     QVConfig,
     QVStrategy,
     RelayProtocol,
+    RemainingTimeCondition,
     ScheduleStrategy,
+    ShedCondition,
+    ShedStage,
     StopStrategy,
+    ThresholdCondition,
 )
 from .system import (
+    AlarmStopOverride,
     CapacityConfig,
     CascadingStrategy,
+    ContextKeyOverride,
+    EventDrivenOverride,
     ModeDefinition,
     ModeManager,
     ModePriority,
@@ -43,12 +54,18 @@ from .system import (
     ProtectionResult,
     ProtectionRule,
     ReversePowerProtection,
+    ScheduleModeController,
     SOCProtection,
     SOCProtectionConfig,
+    SwitchSource,
     SystemAlarmProtection,
 )
 
 __all__ = [
+    # Discovery
+    "ENTRY_POINT_GROUP",
+    "StrategyDescriptor",
+    "discover_strategies",
     # Protocol
     "GridControllerBase",
     "GridControllerProtocol",
@@ -71,6 +88,9 @@ __all__ = [
     "FPStrategy",
     "IslandModeConfig",
     "IslandModeStrategy",
+    "LoadCircuitProtocol",
+    "LoadSheddingConfig",
+    "LoadSheddingStrategy",
     "PQModeConfig",
     "PQModeStrategy",
     "PVSmoothConfig",
@@ -78,11 +98,20 @@ __all__ = [
     "QVConfig",
     "QVStrategy",
     "RelayProtocol",
+    "RemainingTimeCondition",
     "ScheduleStrategy",
+    "ShedCondition",
+    "ShedStage",
     "StopStrategy",
+    "ThresholdCondition",
     # System
+    "AlarmStopOverride",
     "CapacityConfig",
     "CascadingStrategy",
+    "ContextKeyOverride",
+    "EventDrivenOverride",
+    "ScheduleModeController",
+    "SwitchSource",
     "ModePriority",
     "ModeDefinition",
     "ModeManager",

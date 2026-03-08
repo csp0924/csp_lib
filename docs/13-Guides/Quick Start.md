@@ -17,9 +17,10 @@ pip install csp0924_lib
 
 # 按需安裝
 pip install csp0924_lib[modbus]     # Modbus 通訊
+pip install csp0924_lib[can]        # CAN Bus 通訊
 pip install csp0924_lib[mongo]      # MongoDB 批次上傳
 pip install csp0924_lib[redis]      # Redis 客戶端
-pip install csp0924_lib[all]        # 所有功能
+pip install csp0924_lib[all]        # 所有功能（含 CAN）
 ```
 
 ---
@@ -131,8 +132,61 @@ async with loop:
 
 ---
 
+## CAN Bus 設備快速入門
+
+使用 [[AsyncCANDevice]] 搭配 [[PythonCANClient]] 進行 CAN Bus 設備的非同步通訊。
+
+> [!note] 安裝需求
+> 使用 CAN 功能需安裝 `csp0924_lib[can]`，底層依賴 `python-can` 函式庫。
+
+```python
+import asyncio
+from csp_lib.can import CANBusConfig, PythonCANClient
+from csp_lib.equipment.device import DeviceConfig
+from csp_lib.equipment.device.can_device import AsyncCANDevice, CANRxFrameDefinition
+from csp_lib.equipment.processing.can_encoder import CANSignalDefinition, FrameBufferConfig
+from csp_lib.equipment.processing.can_parser import CANFrameParser
+from csp_lib.modbus.types import UInt16
+
+# 1. 建立 CAN 客戶端
+can_config = CANBusConfig(interface="socketcan", channel="can0", bitrate=500000)
+client = PythonCANClient(can_config)
+
+# 2. 定義 RX 解析器（BMS 電池狀態訊框 CAN ID=0x100）
+bms_parser = CANFrameParser(
+    source_name="raw",
+    points=[
+        # 解析 signal: bytes 0-1 = SOC（x 0.1 = 實際值）
+    ],
+)
+
+# 3. 建立設備
+device = AsyncCANDevice(
+    config=DeviceConfig(device_id="bms_001", read_interval=1.0),
+    client=client,
+    rx_frame_definitions=[
+        CANRxFrameDefinition(can_id=0x100, parser=bms_parser, is_periodic=True),
+    ],
+    rx_timeout=10.0,
+)
+
+# 4. 使用設備
+async def main():
+    async with device:
+        device.on("value_change", lambda p: print(f"{p.point_name}: {p.new_value}"))
+        await asyncio.sleep(5)  # 等待 CAN 訊框到達
+        print(device.latest_values)
+
+asyncio.run(main())
+```
+
+> [!tip] `async with device` 會自動執行 connect + start_listener + start，結束時自動 stop + disconnect。
+
+---
+
 ## 下一步
 
-- [[Device Setup]] - 深入了解設備設定
-- [[Control Strategy Setup]] - 探索所有控制策略
-- [[Full System Integration]] - 完整系統整合教學
+- [[Device Setup]] - 深入了解設備設定（含 CAN 設備）
+- [[Control Strategy Setup]] - 探索所有控制策略（含 LoadShedding + EventOverride）
+- [[Full System Integration]] - 完整系統整合教學（含 PowerDistributor）
+- [[Custom Strategy]] - 自訂策略

@@ -20,6 +20,13 @@ from .distributed import (
     RemoteSiteConfig,
     RemoteSiteRunner,
 )
+from .distributor import (
+    DeviceSnapshot,
+    EqualDistributor,
+    PowerDistributor,
+    ProportionalDistributor,
+    SOCBalancingDistributor,
+)
 from .group_controller import GroupControllerManager, GroupDefinition
 from .heartbeat import HeartbeatService
 from .loop import GridControlLoop, GridControlLoopConfig
@@ -32,7 +39,16 @@ from .orchestrator import (
     SystemCommandResult,
 )
 from .registry import DeviceRegistry
-from .schema import AggregateFunc, CommandMapping, ContextMapping, DataFeedMapping, HeartbeatMapping, HeartbeatMode
+from .schema import (
+    AggregateFunc,
+    CapabilityCommandMapping,
+    CapabilityContextMapping,
+    CommandMapping,
+    ContextMapping,
+    DataFeedMapping,
+    HeartbeatMapping,
+    HeartbeatMode,
+)
 from .system_controller import SystemController, SystemControllerConfig
 
 __all__ = [
@@ -40,6 +56,8 @@ __all__ = [
     "AggregateFunc",
     "ContextMapping",
     "CommandMapping",
+    "CapabilityContextMapping",
+    "CapabilityCommandMapping",
     "DataFeedMapping",
     "HeartbeatMapping",
     "HeartbeatMode",
@@ -60,6 +78,12 @@ __all__ = [
     "StepCheck",
     "StepResult",
     "SystemCommandResult",
+    # Distributor
+    "DeviceSnapshot",
+    "PowerDistributor",
+    "EqualDistributor",
+    "ProportionalDistributor",
+    "SOCBalancingDistributor",
     # Distributed
     "DistributedConfig",
     "RemoteSiteConfig",

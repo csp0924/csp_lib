@@ -14,9 +14,11 @@ import asyncio
 import time
 from collections import deque
 from dataclasses import dataclass
-from enum import Enum, IntEnum
+from enum import IntEnum
 from heapq import heappop, heappush
 from typing import Any, Callable, Coroutine
+
+from csp_lib.core.resilience import CircuitBreaker, CircuitState
 
 from ..exceptions import ModbusCircuitBreakerError, ModbusError, ModbusQueueFullError
 
@@ -78,61 +80,18 @@ class ModbusRequest:
         return self.sequence < other.sequence
 
 
-class CircuitBreakerState(Enum):
-    """斷路器狀態"""
-
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
+# 向後相容別名：CircuitBreakerState → CircuitState
+CircuitBreakerState = CircuitState
 
 
-class UnitCircuitBreaker:
+class UnitCircuitBreaker(CircuitBreaker):
     """
     每個 unit_id 的斷路器
 
-    狀態轉換：
-        CLOSED → 連續失敗達閾值 → OPEN
-        OPEN → 冷卻時間過後 → HALF_OPEN
-        HALF_OPEN → 成功 → CLOSED
-        HALF_OPEN → 失敗 → OPEN
+    薄包裝 Core 層的 CircuitBreaker，保留向後相容 API。
     """
 
-    def __init__(self, threshold: int, cooldown: float) -> None:
-        self._threshold = threshold
-        self._cooldown = cooldown
-        self._state = CircuitBreakerState.CLOSED
-        self._failure_count = 0
-        self._last_failure_time: float = 0.0
-
-    @property
-    def state(self) -> CircuitBreakerState:
-        """取得目前狀態 (含自動 OPEN → HALF_OPEN 轉換)"""
-        if self._state == CircuitBreakerState.OPEN:
-            if time.monotonic() - self._last_failure_time >= self._cooldown:
-                self._state = CircuitBreakerState.HALF_OPEN
-        return self._state
-
-    def record_success(self) -> None:
-        """記錄成功：重置斷路器"""
-        self._failure_count = 0
-        self._state = CircuitBreakerState.CLOSED
-
-    def record_failure(self) -> None:
-        """記錄失敗：累計失敗次數，達閾值時開啟斷路器"""
-        self._failure_count += 1
-        self._last_failure_time = time.monotonic()
-        if self._failure_count >= self._threshold:
-            self._state = CircuitBreakerState.OPEN
-
-    def reset(self) -> None:
-        """手動重置斷路器"""
-        self._failure_count = 0
-        self._state = CircuitBreakerState.CLOSED
-        self._last_failure_time = 0.0
-
-    def allows_request(self) -> bool:
-        """是否允許請求通過"""
-        return self.state != CircuitBreakerState.OPEN
+    pass
 
 
 class ModbusRequestQueue:

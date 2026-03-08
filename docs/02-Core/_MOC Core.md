@@ -15,6 +15,7 @@ tags: [type/moc, layer/core, status/complete]
 - [[AsyncLifecycleMixin]] — 非同步生命週期管理基底
 - [[Error Hierarchy]] — 統一例外階層
 - [[Health Check]] — 健康狀態檢查
+- [[Resilience]] — 斷路器（CircuitBreaker）與重試策略（RetryPolicy）
 
 ## Dataview 索引
 

@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import IndexModel
@@ -21,12 +21,17 @@ from pymongo import IndexModel
 from .schema import ScheduleRule, ScheduleType
 
 
+@runtime_checkable
 class ScheduleRepository(Protocol):
     """
     排程 Repository 介面
 
     定義排程資料存取的標準介面，遵循依賴倒置原則。
     """
+
+    async def health_check(self) -> bool:
+        """檢查 Repository 連線是否正常"""
+        ...
 
     async def find_active_rules(self, site_id: str, now: datetime) -> list[ScheduleRule]:
         """查詢當前時間匹配的啟用規則（依 priority DESC 排序）"""
@@ -64,6 +69,19 @@ class MongoScheduleRepository:
         """
         self._db = db
         self._collection = db[collection_name]
+
+    async def health_check(self) -> bool:
+        """
+        檢查 MongoDB 連線是否正常
+
+        Returns:
+            bool: True 表示連線正常
+        """
+        try:
+            await self._db.command("ping")
+            return True
+        except Exception:
+            return False
 
     async def ensure_indexes(self) -> None:
         """

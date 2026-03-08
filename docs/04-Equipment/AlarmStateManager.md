@@ -34,6 +34,30 @@ source: csp_lib/equipment/alarm/state.py
 | `get_state(code)` | 取得特定告警的狀態 |
 | `has_protection_alarm()` | 檢查是否存在 `ALARM` 等級的告警 |
 | `reset()` | 重置所有告警狀態 |
+| `export_states()` | 匯出所有告警狀態的 shallow copy（`dict[str, AlarmState]`） |
+| `import_states(states)` | 匯入告警狀態，對已存在的告警代碼覆蓋其計數與時間欄位 |
+
+### export_states() / import_states()
+
+這兩個方法用於 `AsyncModbusDevice.reconfigure()` 的告警狀態遷移流程，確保替換告警評估器時，相同告警代碼的歷史狀態不會遺失。
+
+```python
+# 典型使用場景（由 reconfigure() 內部呼叫）
+old_states = manager.export_states()
+
+# 建立新的 AlarmStateManager 並註冊新的告警定義
+new_manager = AlarmStateManager()
+for evaluator in new_evaluators:
+    new_manager.register_alarms(evaluator.get_alarms())
+
+# 將舊狀態還原到新管理器（僅更新兩邊都有的告警代碼）
+new_manager.import_states(old_states)
+```
+
+> [!note] import_states 行為
+> - 僅對**已在新管理器中註冊**的告警代碼有效
+> - 新增的告警代碼（舊管理器不存在）從零狀態開始
+> - 舊管理器中存在但新管理器不再有的告警代碼，其狀態被丟棄
 
 ---
 

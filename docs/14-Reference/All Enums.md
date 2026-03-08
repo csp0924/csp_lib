@@ -42,6 +42,7 @@ SORT file.name ASC
 |------|------|
 | [[ExecutionMode]] | `PERIODIC`, `TRIGGERED`, `HYBRID` |
 | [[ModePriority]] | `SCHEDULE` (10), `MANUAL` (50), `PROTECTION` (100) |
+| [[SwitchSource]] | `MANUAL`, `SCHEDULE`, `EVENT`, `INTERNAL` |
 
 ### Manager 層
 
@@ -54,9 +55,22 @@ SORT file.name ASC
 | 列舉 | 值 |
 |------|------|
 | [[AggregateFunc]] | `AVERAGE`, `SUM`, `MIN`, `MAX`, `FIRST` |
+| [[HeartbeatMode]] | `TOGGLE`, `INCREMENT`, `CONSTANT` |
 
 ### Core 層
 
 | 列舉 | 值 |
 |------|------|
 | [[HealthStatus]] | `HEALTHY`, `DEGRADED`, `UNHEALTHY` |
+| [[CircuitState]] | `CLOSED`, `OPEN`, `HALF_OPEN` |
+
+### CAN 層（v0.4.0）
+
+（CAN 層目前無獨立 Enum，以 dataclass 配置為主）
+
+### Modbus 層（Queue 相關，v0.4.0）
+
+| 列舉 | 值 |
+|------|------|
+| [[RequestPriority]] | `HIGH`, `NORMAL`, `LOW`（具體值依實作） |
+| [[CircuitBreakerState]] | （Modbus 客戶端斷路器狀態，與 Core CircuitState 分離） |

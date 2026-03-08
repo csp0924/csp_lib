@@ -15,7 +15,7 @@ from csp_lib.controller.core import Command, StrategyContext, SystemBase
 from csp_lib.core import get_logger
 
 from .registry import DeviceRegistry
-from .schema import AggregateFunc, ContextMapping
+from .schema import AggregateFunc, CapabilityContextMapping, ContextMapping
 
 logger = get_logger("csp_lib.integration.context_builder")
 
@@ -67,6 +67,7 @@ class ContextBuilder:
         registry: DeviceRegistry,
         mappings: list[ContextMapping],
         system_base: SystemBase | None = None,
+        capability_mappings: list[CapabilityContextMapping] | None = None,
     ) -> None:
         """
         初始化建構器
@@ -75,10 +76,12 @@ class ContextBuilder:
             registry: 設備查詢索引
             mappings: 設備點位 → context 欄位的映射列表
             system_base: 系統基準值（可選），設定於 context.system_base
+            capability_mappings: capability-driven context 映射列表（可選）
         """
         self._registry = registry
         self._mappings = mappings
         self._system_base = system_base
+        self._capability_mappings = capability_mappings or []
 
     def build(self) -> StrategyContext:
         """
@@ -97,6 +100,10 @@ class ContextBuilder:
         for mapping in self._mappings:
             value = self._resolve_value(mapping)
             self._set_context_field(ctx, mapping.context_field, value)
+
+        for cap_mapping in self._capability_mappings:
+            value = self._resolve_capability_value(cap_mapping)
+            self._set_context_field(ctx, cap_mapping.context_field, value)
 
         return ctx
 
@@ -165,6 +172,75 @@ class ContextBuilder:
                 return mapping.custom_aggregate(values)
             except Exception:
                 logger.warning(f"Custom aggregate failed for mapping '{mapping.context_field}', using default.")
+                return None
+
+        return apply_builtin_aggregate(mapping.aggregate, values)
+
+    def _resolve_capability_value(self, mapping: CapabilityContextMapping) -> Any:
+        """解析 capability-driven mapping 的值"""
+        if mapping.device_id is not None:
+            raw = self._read_capability_single(mapping)
+        elif mapping.trait is not None:
+            raw = self._read_capability_trait(mapping)
+        else:
+            raw = self._read_capability_auto(mapping)
+
+        if raw is None:
+            return mapping.default
+
+        if mapping.transform is not None:
+            try:
+                raw = mapping.transform(raw)
+            except Exception:
+                logger.warning(f"Transform failed for capability mapping '{mapping.context_field}', using default.")
+                return mapping.default
+
+        return raw
+
+    def _read_capability_single(self, mapping: CapabilityContextMapping) -> Any:
+        """單一設備：resolve_point → latest_values"""
+        device = self._registry.get_device(mapping.device_id)  # type: ignore[arg-type]
+        if device is None or not device.is_responsive:
+            return None
+        if not device.has_capability(mapping.capability):
+            return None
+        point_name = device.resolve_point(mapping.capability, mapping.slot)
+        return device.latest_values.get(point_name)
+
+    def _read_capability_trait(self, mapping: CapabilityContextMapping) -> Any:
+        """trait 模式：過濾 responsive + has_capability"""
+        devices = self._registry.get_responsive_devices_by_trait(mapping.trait)  # type: ignore[arg-type]
+        if not devices:
+            return None
+        capable = [d for d in devices if d.has_capability(mapping.capability)]
+        return self._aggregate_capability_values(capable, mapping)
+
+    def _read_capability_auto(self, mapping: CapabilityContextMapping) -> Any:
+        """自動發現：所有具備該 capability 的 responsive 設備"""
+        devices = self._registry.get_responsive_devices_with_capability(mapping.capability)
+        if not devices:
+            return None
+        return self._aggregate_capability_values(devices, mapping)
+
+    def _aggregate_capability_values(self, devices: list, mapping: CapabilityContextMapping) -> Any:
+        """聚合多設備的 capability 值"""
+        values = []
+        for device in devices:
+            point_name = device.resolve_point(mapping.capability, mapping.slot)
+            v = device.latest_values.get(point_name)
+            if v is not None:
+                values.append(v)
+
+        if not values:
+            return None
+
+        if mapping.custom_aggregate is not None:
+            try:
+                return mapping.custom_aggregate(values)
+            except Exception:
+                logger.warning(
+                    f"Custom aggregate failed for capability mapping '{mapping.context_field}', using default."
+                )
                 return None
 
         return apply_builtin_aggregate(mapping.aggregate, values)

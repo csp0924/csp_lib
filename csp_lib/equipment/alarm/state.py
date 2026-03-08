@@ -237,6 +237,34 @@ class AlarmStateManager:
         """
         return any(state.is_active and state.definition.level == AlarmLevel.ALARM for state in self._states.values())
 
+    def export_states(self) -> dict[str, AlarmState]:
+        """
+        匯出所有告警狀態的 shallow copy
+
+        Returns:
+            {告警代碼: AlarmState} 字典
+        """
+        return dict(self._states)
+
+    def import_states(self, states: dict[str, AlarmState]) -> None:
+        """
+        匯入告警狀態
+
+        對已註冊的 code，用舊 state 覆蓋新 state 的計數和時間欄位。
+
+        Args:
+            states: 要匯入的告警狀態
+        """
+        for code, old_state in states.items():
+            if code in self._states:
+                new_state = self._states[code]
+                new_state.is_active = old_state.is_active
+                new_state.activate_count = old_state.activate_count
+                new_state.clear_count = old_state.clear_count
+                new_state.activated_at = old_state.activated_at
+                new_state.cleared_at = old_state.cleared_at
+                new_state.last_triggered_at = old_state.last_triggered_at
+
     def reset(self) -> None:
         """
         重置所有告警狀態

@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from csp_lib.core import get_logger
 
@@ -21,8 +21,13 @@ if TYPE_CHECKING:
 logger = get_logger(__name__)
 
 
+@runtime_checkable
 class CommandRepository(Protocol):
     """指令記錄儲存庫介面"""
+
+    async def health_check(self) -> bool:
+        """檢查 Repository 連線是否正常"""
+        ...
 
     async def create(self, record: CommandRecord) -> str:
         """
@@ -113,9 +118,41 @@ class MongoCommandRepository:
         初始化 MongoDB 儲存庫
 
         Args:
-            collection: MongoDB collection
+            db: Motor 非同步資料庫連線
+            collection: Collection 名稱
         """
+        self._db = db
         self._collection = db[collection]
+
+    async def health_check(self) -> bool:
+        """
+        檢查 MongoDB 連線是否正常
+
+        Returns:
+            bool: True 表示連線正常
+        """
+        try:
+            await self._db.command("ping")
+            return True
+        except Exception:
+            return False
+
+    async def ensure_indexes(self) -> None:
+        """
+        建立資料庫索引
+
+        應於應用程式啟動時呼叫一次。
+        """
+        from pymongo import IndexModel
+
+        await self._collection.create_indexes(
+            [
+                IndexModel([("command_id", 1)], unique=True),
+                IndexModel([("device_id", 1)]),
+                IndexModel([("status", 1)]),
+                IndexModel([("created_at", -1)]),
+            ]
+        )
 
     async def create(self, record: CommandRecord) -> str:
         """建立指令記錄"""

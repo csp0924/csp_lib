@@ -199,6 +199,126 @@ await device.disconnect()
 
 ---
 
+---
+
+## CAN 設備設定
+
+使用 [[AsyncCANDevice]] 與 CAN Bus 設備通訊，支援被動監聽、主動控制、請求-回應三種操作模式。
+
+> [!note] 安裝需求
+> 使用 CAN 功能需安裝 `csp0924_lib[can]`。
+
+### 步驟總覽
+
+1. 建立 CAN 客戶端
+2. 定義 TX 信號（可選，用於主動控制）
+3. 定義 RX 訊框（用於接收解析）
+4. 建立設備並啟動
+
+### 1. 建立 CAN 客戶端
+
+```python
+from csp_lib.can import CANBusConfig, PythonCANClient
+
+can_config = CANBusConfig(interface="socketcan", channel="can0", bitrate=500000)
+client = PythonCANClient(can_config)
+```
+
+### 2. 定義 TX 信號（主動控制）
+
+```python
+from csp_lib.equipment.processing.can_encoder import (
+    CANSignalDefinition, FrameBufferConfig,
+)
+from csp_lib.equipment.transport.periodic_sender import PeriodicFrameConfig
+
+# 發送訊框：CAN ID=0x200，包含 power_target 信號
+tx_signals = [
+    CANSignalDefinition(
+        field=...,           # 信號欄位定義（位元偏移、長度、縮放比）
+        can_id=0x200,
+    ),
+]
+tx_buffer_configs = [FrameBufferConfig(can_id=0x200)]
+tx_periodic_configs = [
+    PeriodicFrameConfig(can_id=0x200, interval=0.1),  # 每 100ms 發送一次
+]
+```
+
+### 3. 定義 RX 訊框（接收解析）
+
+```python
+from csp_lib.equipment.device.can_device import CANRxFrameDefinition
+from csp_lib.equipment.processing.can_parser import CANFrameParser
+
+# 被動監聽：設備週期性廣播的狀態訊框
+bms_parser = CANFrameParser(source_name="raw", points=[...])
+
+rx_defs = [
+    # 被動監聽（is_periodic=True）
+    CANRxFrameDefinition(can_id=0x100, parser=bms_parser, is_periodic=True),
+    # 請求-回應（is_periodic=False）
+    CANRxFrameDefinition(
+        can_id=0x200,
+        parser=query_parser,
+        is_periodic=False,
+        request_data=b"\x01\x02",
+    ),
+]
+```
+
+### 4. 建立設備
+
+```python
+from csp_lib.equipment.device import DeviceConfig
+from csp_lib.equipment.device.can_device import AsyncCANDevice
+
+config = DeviceConfig(device_id="pcs_can_001", read_interval=1.0)
+
+device = AsyncCANDevice(
+    config=config,
+    client=client,
+    # TX（可選）
+    tx_signals=tx_signals,
+    tx_buffer_configs=tx_buffer_configs,
+    tx_periodic_configs=tx_periodic_configs,
+    # RX
+    rx_frame_definitions=rx_defs,
+    rx_timeout=10.0,  # 超過 10 秒未收到訊框則標記為無回應
+)
+```
+
+### 5. 使用設備
+
+```python
+async with device:
+    # 被動接收：背景自動更新 latest_values
+    device.on("value_change", lambda p: print(f"{p.point_name}: {p.new_value}"))
+
+    # 寫入 CAN 信號（更新 frame buffer）
+    result = await device.write("power_target", 5000)
+    # 立即發送（不等待定期排程）
+    result = await device.write("power_target", 5000, immediate=True)
+
+    # 讀取最新值
+    print(device.latest_values)
+```
+
+### CAN 設備狀態屬性
+
+| 屬性 | 型別 | 說明 |
+|------|------|------|
+| `is_connected` | `bool` | CAN Bus 連線狀態 |
+| `is_responsive` | `bool` | 最近是否有收到 RX 訊框 |
+| `is_running` | `bool` | 是否已啟動（等同 is_connected） |
+| `latest_values` | `dict` | 最新解析值字典 |
+| `active_alarms` | `list` | 目前啟用的告警列表 |
+
+> [!warning] RX Timeout
+> 若超過 `rx_timeout` 秒未收到任何訊框，`is_responsive` 會被標記為 `False`，並發射 `disconnected` 事件。
+
+---
+
 ## 相關頁面
 
 - [[Quick Start]] - 快速入門

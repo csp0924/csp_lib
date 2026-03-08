@@ -289,9 +289,123 @@ async with manager:
 
 ---
 
+## PowerDistributor：多機功率分配（v0.4.0 新增）
+
+當系統有多台 PCS 或 BESS 需要分配功率時，使用 [[PowerDistributor]] 搭配 `capability_command_mappings` 進行 per-device 智能分配：
+
+```python
+from csp_lib.integration import SystemController, SystemControllerConfig
+from csp_lib.integration.distributor import (
+    EqualDistributor,
+    ProportionalDistributor,
+    SOCBalancingDistributor,
+)
+from csp_lib.integration import CapabilityCommandMapping, CapabilityContextMapping
+
+# --- 分配器選擇 ---
+
+# 1. 均分（所有設備相同規格）
+distributor = EqualDistributor()
+
+# 2. 按額定容量比例分配（設備規格不同時）
+distributor = ProportionalDistributor(rated_key="rated_p")
+# 設備 A rated_p=500kW, 設備 B rated_p=1000kW → A 分 1/3, B 分 2/3
+
+# 3. SOC 平衡分配（放電時高 SOC 多放，充電時低 SOC 多充）
+distributor = SOCBalancingDistributor(
+    rated_key="rated_p",
+    soc_capability="soc_readable",
+    soc_slot="soc",
+    gain=2.0,
+)
+
+# --- 配置 SystemController ---
+config = SystemControllerConfig(
+    # 使用 capability 映射取代點位映射，支援 per-device 路由
+    capability_context_mappings=[
+        CapabilityContextMapping(
+            capability_name="soc_readable",
+            slot="soc",
+            context_field="soc",         # → context.soc（取第一台設備）
+        ),
+    ],
+    capability_command_mappings=[
+        CapabilityCommandMapping(
+            capability_name="power_writable",
+            slot="p_target",
+            command_field="p_target",    # 從 Command.p_target 分配到各設備
+        ),
+        CapabilityCommandMapping(
+            capability_name="power_writable",
+            slot="q_target",
+            command_field="q_target",
+        ),
+    ],
+    # 啟用 PowerDistributor
+    power_distributor=distributor,
+    # ... 其他配置
+)
+```
+
+> [!note] 運作方式
+> 設定 `power_distributor` 後，`SystemController` 在每次 `_on_command()` 時：
+> 1. 呼叫 `distributor.distribute(protected_command, device_snapshots)`
+> 2. 取得每台設備的個別 `Command`
+> 3. 透過 `CommandRouter.route_per_device()` 將個別命令寫入對應設備
+
+### DeviceSnapshot
+
+`PowerDistributor.distribute()` 接收的 `DeviceSnapshot` 包含：
+
+| 欄位 | 說明 |
+|------|------|
+| `device_id` | 設備唯一識別碼 |
+| `metadata` | 註冊時的靜態資訊（`rated_p`、`rated_s` 等） |
+| `latest_values` | 設備最新讀取值 |
+| `capabilities` | `capability_name → {slot: value}` 的映射 |
+
+```python
+# 在 DeviceRegistry 注冊時提供 metadata
+registry.register(pcs_1, traits=["pcs"], metadata={"rated_p": 500.0, "rated_s": 600.0})
+registry.register(pcs_2, traits=["pcs"], metadata={"rated_p": 1000.0, "rated_s": 1200.0})
+```
+
+### 自訂 PowerDistributor
+
+實作 `PowerDistributor` Protocol 可自訂分配邏輯：
+
+```python
+from csp_lib.integration.distributor import PowerDistributor, DeviceSnapshot
+from csp_lib.controller.core import Command
+
+
+class TemperatureBasedDistributor:
+    """根據設備溫度調整分配（低溫設備多充）"""
+
+    def distribute(self, command: Command, devices: list[DeviceSnapshot]) -> dict[str, Command]:
+        if not devices:
+            return {}
+        # 取得各設備溫度（從 latest_values）
+        temps = [d.latest_values.get("temperature", 25.0) for d in devices]
+        avg_temp = sum(temps) / len(temps)
+        # 低溫多充，計算權重
+        weights = [max(0.1, avg_temp - t + 1.0) for t in temps]
+        total = sum(weights)
+        return {
+            d.device_id: Command(
+                p_target=command.p_target * w / total,
+                q_target=command.q_target / len(devices),
+            )
+            for d, w in zip(devices, weights, strict=True)
+        }
+```
+
+---
+
 ## 相關頁面
 
 - [[Quick Start]] - 快速入門
 - [[Device Setup]] - 設備設定
 - [[Control Strategy Setup]] - 控制策略設定
 - [[Cluster HA Setup]] - 叢集高可用設定
+- [[PowerDistributor]] - 功率分配器 API 參考

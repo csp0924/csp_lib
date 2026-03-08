@@ -21,6 +21,25 @@ classDiagram
         }
         class DeviceError
         class ConfigurationError
+        class CircuitState {
+            <<enumeration>>
+            CLOSED
+            OPEN
+            HALF_OPEN
+        }
+        class CircuitBreaker {
+            +state CircuitState
+            +record_success()
+            +record_failure()
+            +reset()
+            +allows_request() bool
+        }
+        class RetryPolicy {
+            <<frozen dataclass>>
+            +max_retries int
+            +base_delay float
+            +exponential_base float
+        }
     }
 
     namespace Modbus {
@@ -43,6 +62,24 @@ classDiagram
         }
     }
 
+    namespace CAN {
+        class CANBusConfig {
+            <<frozen dataclass>>
+            +interface str
+            +channel str
+            +bitrate int
+        }
+        class AsyncCANClientBase {
+            <<abstract>>
+            +connect()
+            +disconnect()
+            +send()
+            +subscribe()
+            +request()
+        }
+        class PythonCANClient
+    }
+
     namespace Equipment {
         class AsyncModbusDevice {
             +device_id str
@@ -53,6 +90,10 @@ classDiagram
             +read_once()
             +write_point()
             +on()
+        }
+        class AsyncCANDevice
+        class DeviceProtocol {
+            <<protocol>>
         }
         class DeviceConfig
         class ReadPoint
@@ -97,6 +138,20 @@ classDiagram
             +last_command Command
             +system_base SystemBase
         }
+        class EventDrivenOverride {
+            <<protocol>>
+            +name str
+            +cooldown_seconds float
+            +should_activate(ctx) bool
+        }
+        class LoadSheddingStrategy
+        class SwitchSource {
+            <<enumeration>>
+            MANUAL
+            SCHEDULE
+            EVENT
+            INTERNAL
+        }
     }
 
     namespace Manager {
@@ -121,6 +176,8 @@ classDiagram
             +push_override()
             +pop_override()
             +health()
+            +route_per_device()
+            +register_event_override()
         }
         class DeviceRegistry {
             +register()
@@ -132,7 +189,13 @@ classDiagram
         }
         class CommandRouter {
             +route(cmd)
+            +route_per_device(cmd, per_device)
         }
+        class PowerDistributor {
+            <<protocol>>
+            +distribute(cmd, devices) dict
+        }
+        class HeartbeatService
     }
 
     namespace Storage {
@@ -146,6 +209,17 @@ classDiagram
     DeviceManager --|> AsyncLifecycleMixin
     UnifiedDeviceManager --|> AsyncLifecycleMixin
     SystemController --|> AsyncLifecycleMixin
+
+    %% CircuitBreaker
+    CircuitBreaker --> CircuitState
+
+    %% CAN
+    PythonCANClient --|> AsyncCANClientBase
+
+    %% Equipment
+    AsyncModbusDevice ..|> DeviceProtocol
+    AsyncCANDevice ..|> DeviceProtocol
+    AsyncCANDevice *-- AsyncCANClientBase
 
     %% Equipment composition
     AsyncModbusDevice *-- DeviceConfig
@@ -161,6 +235,10 @@ classDiagram
     ReadPoint *-- ProcessingPipeline
     GroupReader --> AsyncModbusClientBase
     GroupReader --> ModbusCodec
+
+    %% Controller
+    LoadSheddingStrategy --|> Strategy
+    ModeManager --> SwitchSource
 
     %% Controller composition
     StrategyExecutor o-- Strategy
@@ -184,6 +262,9 @@ classDiagram
     SystemController *-- CommandRouter
     SystemController *-- StrategyExecutor
     SystemController *-- DeviceRegistry
+    SystemController o-- PowerDistributor
+    SystemController o-- EventDrivenOverride
+    SystemController o-- HeartbeatService
     ContextBuilder --> DeviceRegistry
     CommandRouter --> DeviceRegistry
     ContextBuilder ..> StrategyContext : creates
@@ -245,6 +326,35 @@ classDiagram
     }
     class ConfigurationError
 
+    class CircuitState {
+        <<enumeration>>
+        CLOSED
+        OPEN
+        HALF_OPEN
+    }
+
+    class CircuitBreaker {
+        -_threshold int
+        -_cooldown float
+        -_state CircuitState
+        -_failure_count int
+        -_last_failure_time float
+        +state CircuitState
+        +failure_count int
+        +record_success()
+        +record_failure()
+        +reset()
+        +allows_request() bool
+    }
+
+    class RetryPolicy {
+        <<frozen dataclass>>
+        +max_retries int = 3
+        +base_delay float = 1.0
+        +exponential_base float = 2.0
+        +get_delay(attempt) float
+    }
+
     HealthReport --> HealthStatus
     HealthReport o-- HealthReport : children
     HealthCheckable ..> HealthReport : returns
@@ -253,6 +363,8 @@ classDiagram
     CommunicationError --|> DeviceError
     AlarmError --|> DeviceError
     ConfigurationError --|> Exception
+
+    CircuitBreaker --> CircuitState
 ```
 
 ---
@@ -411,6 +523,73 @@ classDiagram
     ModbusConfigError --|> ModbusError
     ModbusCircuitBreakerError --|> ModbusError
     ModbusQueueFullError --|> ModbusError
+```
+
+---
+
+## 3b. CAN Layer
+
+```mermaid
+classDiagram
+    direction TB
+
+    class CANBusConfig {
+        <<frozen dataclass>>
+        +interface str
+        +channel str
+        +bitrate int = 500_000
+        +receive_own_messages bool = False
+    }
+
+    class CANFrame {
+        <<frozen dataclass>>
+        +can_id int
+        +data bytes
+        +timestamp float = 0.0
+        +is_remote bool = False
+    }
+
+    class AsyncCANClientBase {
+        <<abstract>>
+        +connect()*
+        +disconnect()*
+        +is_connected()* bool
+        +start_listener()*
+        +stop_listener()*
+        +subscribe(can_id, handler)* Callable
+        +send(can_id, data)*
+        +request(can_id, data, response_id, timeout)* CANFrame
+    }
+
+    class PythonCANClient {
+        -_config CANBusConfig
+        -_bus Any
+        -_connected bool
+        -_listener_task Task
+        -_handlers dict
+        -_pending_responses dict
+        +connect()
+        +disconnect()
+        +is_connected() bool
+        +start_listener()
+        +stop_listener()
+        +subscribe(can_id, handler) Callable
+        +send(can_id, data)
+        +request(can_id, data, response_id, timeout) CANFrame
+    }
+
+    PythonCANClient --|> AsyncCANClientBase
+    PythonCANClient --> CANBusConfig
+    AsyncCANClientBase ..> CANFrame : uses
+
+    class CANError
+    class CANConnectionError
+    class CANTimeoutError
+    class CANSendError
+
+    CANConnectionError --|> CANError
+    CANTimeoutError --|> CANError
+    CANSendError --|> CANError
 ```
 
 ---
@@ -616,6 +795,20 @@ classDiagram
 classDiagram
     direction TB
 
+    class DeviceProtocol {
+        <<protocol>>
+        +device_id str
+        +is_connected bool
+        +is_responsive bool
+        +latest_values dict
+        +is_protected bool
+        +active_alarms list~AlarmState~
+        +read_once() dict
+        +write(name, value) WriteResult
+        +on(event, handler) Callable
+        +health() HealthReport
+    }
+
     class ReadGroup {
         <<frozen dataclass>>
         +function_code int
@@ -734,6 +927,27 @@ classDiagram
         +health() HealthReport
     }
 
+    class AsyncCANDevice {
+        -_config DeviceConfig
+        -_client AsyncCANClientBase
+        -_emitter DeviceEventEmitter
+        +device_id str
+        +is_connected bool
+        +is_responsive bool
+        +is_protected bool
+        +latest_values dict
+        +active_alarms list~AlarmState~
+        +start()
+        +stop()
+        +read_once() dict
+        +write(name, value) WriteResult
+        +on(event, handler) Callable
+        +health() HealthReport
+    }
+
+    AsyncModbusDevice ..|> DeviceProtocol
+    AsyncCANDevice ..|> DeviceProtocol
+
     AsyncModbusDevice *-- DeviceConfig
     AsyncModbusDevice *-- ReadScheduler
     AsyncModbusDevice *-- GroupReader
@@ -743,6 +957,9 @@ classDiagram
     AsyncModbusDevice o-- CapabilityBinding
     AsyncModbusDevice *-- DeviceEventEmitter
     AsyncModbusDevice ..> WriteResult
+
+    AsyncCANDevice *-- AsyncCANClientBase
+    AsyncCANDevice *-- DeviceEventEmitter
 ```
 
 ### 4d. Device Events
@@ -883,6 +1100,7 @@ classDiagram
         <<abstract>>
         +execution_config* ExecutionConfig
         +suppress_heartbeat bool
+        +required_capabilities list~Capability~
         +execute(context)* Command
         +on_activate()
         +on_deactivate()
@@ -903,6 +1121,14 @@ classDiagram
     class BypassStrategy
     class StopStrategy
     class ScheduleStrategy
+    class LoadSheddingStrategy {
+        -_config LoadSheddingConfig
+        +config LoadSheddingConfig
+        +shed_stage_names list~str~
+        +execute(context) Command
+        +on_activate()
+        +on_deactivate()
+    }
 
     PQModeStrategy --|> Strategy
     PVSmoothStrategy --|> Strategy
@@ -912,6 +1138,7 @@ classDiagram
     BypassStrategy --|> Strategy
     StopStrategy --|> Strategy
     ScheduleStrategy --|> Strategy
+    LoadSheddingStrategy --|> Strategy
 ```
 
 ### 5b. Executor & Mode Management
@@ -942,6 +1169,14 @@ classDiagram
     StrategyExecutor o-- Strategy
     StrategyExecutor ..> Command
 
+    class SwitchSource {
+        <<enumeration>>
+        MANUAL
+        SCHEDULE
+        EVENT
+        INTERNAL
+    }
+
     class ModePriority {
         <<IntEnum>>
         SCHEDULE = 10
@@ -965,17 +1200,50 @@ classDiagram
         -_base_mode_names list~str~
         -_override_names list~str~
         +on_strategy_change Callable?
+        +last_switch_source SwitchSource?
         +register(name, strategy, priority, description)
         +unregister(name)
-        +set_base_mode(name?)
+        +set_base_mode(name, source)
+        +add_base_mode(name, source)
+        +remove_base_mode(name, source)
         +get_base_mode() ModeDefinition?
-        +push_override(name)
-        +pop_override(name)
+        +push_override(name, source)
+        +pop_override(name, source)
+        +clear_overrides()
         +get_active_strategy() Strategy?
         +get_active_mode() ModeDefinition?
     }
 
     ModeManager o-- ModeDefinition
+    ModeManager --> SwitchSource
+
+    class EventDrivenOverride {
+        <<protocol>>
+        +name str
+        +cooldown_seconds float
+        +should_activate(context) bool
+    }
+
+    class AlarmStopOverride {
+        -_name str
+        -_alarm_key str
+        +name str
+        +cooldown_seconds float
+        +should_activate(context) bool
+    }
+
+    class ContextKeyOverride {
+        -_name str
+        -_context_key str
+        -_activate_when Callable
+        -_cooldown_seconds float
+        +name str
+        +cooldown_seconds float
+        +should_activate(context) bool
+    }
+
+    AlarmStopOverride ..|> EventDrivenOverride
+    ContextKeyOverride ..|> EventDrivenOverride
 ```
 
 ### 5c. Protection & Cascading
@@ -1262,6 +1530,7 @@ classDiagram
         -_registry DeviceRegistry
         -_mappings list~CommandMapping~
         +route(command)
+        +route_per_device(command, per_device_commands)
     }
 
     CommandRouter --> DeviceRegistry
@@ -1280,6 +1549,43 @@ classDiagram
     HeartbeatService --> DeviceRegistry
     HeartbeatService o-- HeartbeatMapping
 
+    class DeviceSnapshot {
+        <<frozen dataclass>>
+        +device_id str
+        +metadata dict
+        +latest_values dict
+        +capabilities dict
+        +get_capability_value(capability, slot) Any
+    }
+
+    class PowerDistributor {
+        <<protocol>>
+        +distribute(cmd, devices) dict~str, Command~
+    }
+
+    class EqualDistributor {
+        +distribute(cmd, devices) dict~str, Command~
+    }
+
+    class ProportionalDistributor {
+        -_rated_key str
+        +distribute(cmd, devices) dict~str, Command~
+    }
+
+    class SOCBalancingDistributor {
+        -_rated_key str
+        -_soc_capability str
+        -_soc_slot str
+        -_gain float
+        +distribute(cmd, devices) dict~str, Command~
+    }
+
+    EqualDistributor ..|> PowerDistributor
+    ProportionalDistributor ..|> PowerDistributor
+    SOCBalancingDistributor ..|> PowerDistributor
+    PowerDistributor ..> DeviceSnapshot : uses
+    PowerDistributor ..> Command : produces
+
     class SystemControllerConfig {
         <<dataclass>>
         +context_mappings list~ContextMapping~
@@ -1289,6 +1595,7 @@ classDiagram
         +auto_stop_on_alarm bool = True
         +capacity_kva float?
         +heartbeat_mappings list~HeartbeatMapping~
+        +power_distributor PowerDistributor?
     }
 
     class SystemController {
@@ -1299,10 +1606,14 @@ classDiagram
         -_command_router CommandRouter
         -_executor StrategyExecutor
         -_heartbeat HeartbeatService?
+        -_power_distributor PowerDistributor?
+        -_event_overrides list~EventDrivenOverride~
         +register_mode(name, strategy, priority)
         +set_base_mode(name)
         +push_override(name)
         +pop_override(name)
+        +route_per_device(cmd, per_device)
+        +register_event_override(override)
         +health() HealthReport
     }
 
@@ -1314,6 +1625,8 @@ classDiagram
     SystemController *-- CommandRouter
     SystemController *-- StrategyExecutor
     SystemController o-- HeartbeatService
+    SystemController o-- PowerDistributor
+    SystemController o-- EventDrivenOverride
     SystemController --> SystemControllerConfig
 ```
 
@@ -1452,5 +1765,49 @@ sequenceDiagram
         DR-->>CR: [pcs_device]
         CR->>DEV: write_point("power_setpoint", 95)
         CR->>DEV: write_point("reactive_setpoint", 50)
+    end
+```
+
+---
+
+## 10. Data Flow — PQ Control with PowerDistributor
+
+帶有 `PowerDistributor` 的多設備功率分配控制流程，展示 `EventDrivenOverride` 評估和 per-device 路由。
+
+```mermaid
+sequenceDiagram
+    participant SC as SystemController
+    participant CB as ContextBuilder
+    participant SE as StrategyExecutor
+    participant STR as PQModeStrategy
+    participant PG as ProtectionGuard
+    participant EO as EventDrivenOverride
+    participant PD as PowerDistributor
+    participant CR as CommandRouter
+    participant D1 as Device_1
+    participant D2 as Device_2
+
+    SC->>SE: run()
+    loop Every interval
+        SE->>CB: build()
+        CB-->>SE: StrategyContext
+
+        SE->>STR: execute(context)
+        STR-->>SE: Command(p=1000)
+
+        SE->>SC: _on_command(cmd)
+        SC->>PG: apply(cmd, ctx)
+        PG-->>SC: Command(p=950)
+
+        SC->>EO: should_activate(ctx)
+        EO-->>SC: false
+
+        SC->>SC: _build_device_snapshots()
+        SC->>PD: distribute(cmd, snapshots)
+        PD-->>SC: {d1: Cmd(p=300), d2: Cmd(p=650)}
+
+        SC->>CR: route_per_device(cmd, per_device)
+        CR->>D1: write("power", 300)
+        CR->>D2: write("power", 650)
     end
 ```

@@ -13,7 +13,7 @@ import json
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from csp_lib.controller.strategies import ScheduleStrategy
+from csp_lib.controller.system.schedule_mode import ScheduleModeController
 from csp_lib.core import AsyncLifecycleMixin, get_logger
 
 from .config import ScheduleServiceConfig
@@ -29,7 +29,7 @@ class ScheduleService(AsyncLifecycleMixin):
     排程服務
 
     週期性從 Repository 查詢匹配的排程規則，透過 Factory 建立策略，
-    並驅動 ScheduleStrategy.update_schedule() 進行策略切換。
+    並透過 ScheduleModeController 走 ModeManager 正規路徑進行策略切換。
 
     生命週期：
         - ``async with service:`` → 啟動/停止輪詢迴圈
@@ -41,7 +41,7 @@ class ScheduleService(AsyncLifecycleMixin):
             config=ScheduleServiceConfig(site_id="site_001"),
             repository=mongo_repo,
             factory=StrategyFactory(pv_service=pv_svc),
-            schedule_strategy=schedule_strategy,
+            mode_controller=system_controller,  # 實作 ScheduleModeController
         )
         async with service:
             await asyncio.Event().wait()
@@ -52,7 +52,7 @@ class ScheduleService(AsyncLifecycleMixin):
         config: ScheduleServiceConfig,
         repository: ScheduleRepository,
         factory: StrategyFactory,
-        schedule_strategy: ScheduleStrategy,
+        mode_controller: ScheduleModeController,
     ) -> None:
         """
         初始化排程服務
@@ -61,12 +61,12 @@ class ScheduleService(AsyncLifecycleMixin):
             config: 服務配置
             repository: 排程規則資料存取層
             factory: 策略工廠
-            schedule_strategy: 排程策略實例（由此服務驅動切換）
+            mode_controller: 排程模式控制器（實作 ScheduleModeController Protocol）
         """
         self._config = config
         self._repository = repository
         self._factory = factory
-        self._schedule_strategy = schedule_strategy
+        self._mode_controller = mode_controller
 
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
@@ -120,8 +120,8 @@ class ScheduleService(AsyncLifecycleMixin):
         if not rules:
             # 無匹配規則
             if self._current_rule_key is not None:
-                logger.info("ScheduleService: 無匹配規則，切換至 fallback")
-                await self._schedule_strategy.update_schedule(None)
+                logger.info("ScheduleService: 無匹配規則，停用排程模式")
+                await self._mode_controller.deactivate_schedule_mode()
                 self._current_rule_key = None
             return
 
@@ -140,7 +140,10 @@ class ScheduleService(AsyncLifecycleMixin):
             return
 
         logger.info(f"ScheduleService: 切換策略 → {winning_rule.name} ({winning_rule.strategy_type.value})")
-        await self._schedule_strategy.update_schedule(strategy)
+        await self._mode_controller.activate_schedule_mode(
+            strategy,
+            description=f"{winning_rule.name} ({winning_rule.strategy_type.value})",
+        )
         self._current_rule_key = rule_key
 
     @staticmethod

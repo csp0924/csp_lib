@@ -11,7 +11,7 @@
 #   - 單一職責：僅負責資料存取，不包含業務邏輯
 
 from datetime import datetime
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from motor.motor_asyncio import AsyncIOMotorDatabase
 from pymongo import IndexModel
@@ -19,6 +19,7 @@ from pymongo import IndexModel
 from .schema import AlarmRecord, AlarmStatus
 
 
+@runtime_checkable
 class AlarmRepository(Protocol):
     """
     告警 Repository 介面
@@ -26,6 +27,10 @@ class AlarmRepository(Protocol):
     定義告警資料存取的標準介面，遵循依賴倒置原則。
     業務層應依賴此 Protocol，而非具體實作。
     """
+
+    async def health_check(self) -> bool:
+        """檢查 Repository 連線是否正常"""
+        ...
 
     async def upsert(self, record: AlarmRecord) -> tuple[str, bool]:
         """新增或更新告警記錄"""
@@ -67,6 +72,19 @@ class MongoAlarmRepository:
         """
         self._db = db
         self._collection = db[collection_name]
+
+    async def health_check(self) -> bool:
+        """
+        檢查 MongoDB 連線是否正常
+
+        Returns:
+            bool: True 表示連線正常
+        """
+        try:
+            await self._db.command("ping")
+            return True
+        except Exception:
+            return False
 
     async def ensure_indexes(self) -> None:
         """

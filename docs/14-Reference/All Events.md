@@ -7,7 +7,7 @@ created: 2026-02-17
 
 # 所有設備事件
 
-[[AsyncModbusDevice]] 透過 [[DeviceEventEmitter]] 發射的所有事件列表。
+[[AsyncModbusDevice]] 與 [[AsyncCANDevice]]（v0.4.0）透過 [[DeviceEventEmitter]] 發射的所有事件列表。兩種設備共用同一套事件系統。
 
 ## 事件總覽
 
@@ -130,8 +130,23 @@ cancel()  # 呼叫返回值即可取消訂閱
 
 ---
 
+## CAN 設備事件補充（v0.4.0）
+
+[[AsyncCANDevice]] 的事件含義與 AsyncModbusDevice 相同，但觸發時機略有差異：
+
+| 事件 | AsyncModbusDevice 觸發時機 | AsyncCANDevice 觸發時機 |
+|------|--------------------------|----------------------|
+| `connected` | TCP/RTU 連線建立 | CAN Bus 連線建立 |
+| `disconnected` | 連線中斷 | Bus 連線中斷 |
+| `read_complete` | 週期讀取排程完成 | CAN RX 幀接收並解析 |
+| `write_complete` | 暫存器寫入確認 | CAN TX 幀發送成功 |
+
+---
+
 ## 相關頁面
 
 - [[Device Setup]] - 設備設定指南
-- [[AsyncModbusDevice]] - 核心設備類別
+- [[AsyncModbusDevice]] - Modbus 設備類別
+- [[AsyncCANDevice]] - CAN 設備類別（v0.4.0）
 - [[DeviceEventEmitter]] - 事件發射器
+- [[Event System]] - 事件系統架構說明

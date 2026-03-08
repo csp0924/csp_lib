@@ -43,6 +43,7 @@ csp_lib.modbus
 ├── clients/        # 非同步客戶端
 │   ├── base.py     # AsyncModbusClientBase 抽象介面
 │   ├── client.py   # TCP/RTU/Shared 實作
+│   ├── queue.py    # 請求佇列 + 背景 Worker（優先權排程 + 斷路器）
 │   └── compat.py   # pymodbus 版本相容層
 ├── codec.py        # ModbusCodec 編解碼器
 ├── config.py       # 連線設定 (TCP/RTU)

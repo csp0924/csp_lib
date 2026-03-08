@@ -6,10 +6,14 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
 
 from .command import Command
 from .context import StrategyContext
 from .execution import ExecutionConfig
+
+if TYPE_CHECKING:
+    from csp_lib.equipment.device.capability import Capability
 
 
 class Strategy(ABC):
@@ -47,6 +51,15 @@ class Strategy(ABC):
             Command: 策略輸出命令
         """
         pass
+
+    @property
+    def required_capabilities(self) -> tuple[Capability, ...]:
+        """
+        此策略需要的能力。
+        SystemController 在 register_mode() 時驗證。
+        預設空 tuple，不影響既有策略。
+        """
+        return ()
 
     @property
     def suppress_heartbeat(self) -> bool:

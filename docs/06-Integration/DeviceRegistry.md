@@ -26,7 +26,7 @@ Trait-based 設備查詢索引，隸屬於 [[_MOC Integration|Integration 模組
 
 | 方法 | 說明 |
 |------|------|
-| `register(device, traits=None)` | 註冊設備與可選的 traits；`device_id` 已存在時拋出 `ValueError` |
+| `register(device, traits=None, metadata=None)` | 註冊設備與可選的 traits 及靜態 metadata；`device_id` 已存在時拋出 `ValueError` |
 | `unregister(device_id)` | 移除設備及其所有 trait 關聯；不存在時靜默忽略 |
 
 ### Trait 管理
@@ -45,6 +45,22 @@ Trait-based 設備查詢索引，隸屬於 [[_MOC Integration|Integration 模組
 | `get_responsive_devices_by_trait(trait)` | 依 trait 查詢所有 `is_responsive=True` 的設備 |
 | `get_first_responsive_device_by_trait(trait)` | 依 trait 取得第一台 responsive 設備 |
 | `get_traits(device_id)` | 取得設備的所有 traits |
+| `get_metadata(device_id)` | 取得設備的靜態 metadata dict，不存在回傳 `{}` |
+
+### Metadata 支援
+
+`register()` 的 `metadata` 參數接受任意 `dict[str, Any]`，用於儲存設備的靜態屬性（如額定功率、序號等）。此資訊會在建構 `DeviceSnapshot` 時被 [[PowerDistributor]] 使用，以進行比例或 SOC 平衡分配。
+
+```python
+registry.register(
+    bess_device,
+    traits=["bess"],
+    metadata={"rated_p": 500.0, "rated_s": 600.0, "serial": "BESS-A01"},
+)
+
+# 查詢 metadata
+meta = registry.get_metadata("bess_a")  # {"rated_p": 500.0, ...}
+```
 
 ### 屬性
 
@@ -59,13 +75,22 @@ Trait-based 設備查詢索引，隸屬於 [[_MOC Integration|Integration 模組
 from csp_lib.integration import DeviceRegistry
 
 registry = DeviceRegistry()
+
+# 基本註冊（含 traits）
 registry.register(device, traits=["pcs", "battery"])
 registry.add_trait("inverter_001", "grid_forming")
 
-# Query
-device = registry.get("inverter_001")
-pcs_devices = registry.get_by_trait("pcs")                    # All PCS devices
-responsive = registry.get_by_trait("pcs", responsive_only=True) # Only responsive
+# 含 metadata 的註冊（供 PowerDistributor 使用）
+registry.register(bess_a, traits=["bess"], metadata={"rated_p": 500.0})
+registry.register(bess_b, traits=["bess"], metadata={"rated_p": 1000.0})
+
+# 查詢
+device = registry.get_device("inverter_001")
+pcs_devices = registry.get_devices_by_trait("pcs")              # All PCS devices
+responsive = registry.get_responsive_devices_by_trait("pcs")    # Only responsive
+
+# 查詢 metadata
+meta = registry.get_metadata("bess_a")  # {"rated_p": 500.0}
 ```
 
 ## 相關頁面
@@ -73,4 +98,5 @@ responsive = registry.get_by_trait("pcs", responsive_only=True) # Only responsiv
 - [[ContextBuilder]] — 使用 registry 查詢設備並讀取值
 - [[CommandRouter]] — 使用 registry 查詢設備並執行寫入
 - [[DeviceDataFeed]] — 使用 registry 解析 PV 資料來源設備
+- [[PowerDistributor]] — 使用 metadata 進行比例或 SOC 平衡分配
 - [[GroupControllerManager]] — 從 master registry 建立子 registry 進行多群組控制

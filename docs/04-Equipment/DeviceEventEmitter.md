@@ -14,7 +14,7 @@ source: csp_lib/equipment/device/events.py
 
 ---
 
-## 9 種事件類型
+## 12 種事件類型
 
 | 事件名稱 | 常數 | Payload 類別 | 說明 |
 |---------|------|-------------|------|
@@ -27,6 +27,9 @@ source: csp_lib/equipment/device/events.py
 | `write_error` | `EVENT_WRITE_ERROR` | `WriteErrorPayload` | 寫入失敗 |
 | `alarm_triggered` | `EVENT_ALARM_TRIGGERED` | `DeviceAlarmPayload` | 告警觸發 |
 | `alarm_cleared` | `EVENT_ALARM_CLEARED` | `DeviceAlarmPayload` | 告警解除 |
+| `reconfigured` | `EVENT_RECONFIGURED` | `ReconfiguredPayload` | 動態重新配置完成 |
+| `restarted` | `EVENT_RESTARTED` | `RestartedPayload` | 讀取迴圈重啟 |
+| `point_toggled` | `EVENT_POINT_TOGGLED` | `PointToggledPayload` | 點位啟用/停用 |
 
 ---
 
@@ -103,6 +106,30 @@ source: csp_lib/equipment/device/events.py
 |------|------|------|
 | `device_id` | `str` | 設備 ID |
 | `alarm_event` | `AlarmEvent` | 告警事件 |
+| `timestamp` | `datetime` | 事件時間 |
+
+### ReconfiguredPayload
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `device_id` | `str` | 設備 ID |
+| `changed_sections` | `tuple[str, ...]` | 已變更的組件名稱列表 |
+| `timestamp` | `datetime` | 事件時間 |
+
+### RestartedPayload
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `device_id` | `str` | 設備 ID |
+| `timestamp` | `datetime` | 事件時間 |
+
+### PointToggledPayload
+
+| 欄位 | 型別 | 說明 |
+|------|------|------|
+| `device_id` | `str` | 設備 ID |
+| `point_name` | `str` | 被切換的點位名稱 |
+| `enabled` | `bool` | 切換後的啟用狀態 |
 | `timestamp` | `datetime` | 事件時間 |
 
 ---

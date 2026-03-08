@@ -56,10 +56,17 @@ source: csp_lib/manager/command/manager.py
 ## 使用範例
 
 ```python
-from csp_lib.manager import WriteCommandManager, RedisCommandAdapter
+from csp_lib.manager import WriteCommandManager, MongoCommandRepository
 
-adapter = RedisCommandAdapter(redis_client, channel="commands")
-manager = WriteCommandManager(device=device, adapter=adapter)
+repo = MongoCommandRepository(db)
+manager = WriteCommandManager(repository=repo)
+
+# 註冊可寫入的設備
+manager.register_device(device1)
+manager.register_device(device2)
+
+# 執行指令
+result = await manager.execute(command)
 ```
 
 ## 相關頁面

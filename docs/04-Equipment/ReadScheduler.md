@@ -42,6 +42,7 @@ source: csp_lib/equipment/transport/scheduler.py
 | `get_next_groups()` | 取得下一批讀取群組（推進輪替索引） |
 | `peek_next_groups()` | 預覽下一批讀取群組（不推進索引） |
 | `reset()` | 重置輪替索引為 0 |
+| `update_groups(always_groups, rotating_groups)` | 動態更新分組，`None` 表示保持不變 |
 
 ### 屬性
 
@@ -50,6 +51,27 @@ source: csp_lib/equipment/transport/scheduler.py
 | `current_rotating_index` | `int` | 當前輪替索引 |
 | `rotating_count` | `int` | 輪替群組數量 |
 | `has_rotating` | `bool` | 是否有輪替群組 |
+
+### update_groups()
+
+`update_groups()` 允許在設備運行期間動態替換讀取分組，由 `AsyncModbusDevice.reconfigure()` 內部呼叫。
+
+```python
+# 動態更新固定分組（保留輪替分組不變）
+scheduler.update_groups(always_groups=grouper.group(new_core_points))
+
+# 同時更新固定與輪替分組
+scheduler.update_groups(
+    always_groups=grouper.group(new_always_points),
+    rotating_groups=[
+        grouper.group(new_group_a),
+        grouper.group(new_group_b),
+    ],
+)
+```
+
+> [!note] 輪替索引重置
+> 更新 `rotating_groups` 時，`_rotating_index` 自動重置為 0，確保從第一組開始輪替。更新 `always_groups` 不影響輪替索引。
 
 ---
 

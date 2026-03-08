@@ -153,7 +153,73 @@ async with SharedPymodbusTcpClient(config) as client:
 
 ---
 
+## ModbusRequestQueue
+
+`ModbusRequestQueue` 提供請求佇列 + 背景 Worker 架構，取代 `asyncio.Lock`，適用於需要精確排程和多設備公平排程的場景。
+
+> [!note] 此類別屬於進階用法，一般情況下由客戶端內部使用，不需要直接操作。
+
+### RequestQueueConfig
+
+| 欄位 | 型別 | 預設 | 說明 |
+|------|------|------|------|
+| `default_timeout` | `float` | `5.0` | 每個請求的預設逾時（秒） |
+| `circuit_breaker_threshold` | `int` | `5` | 連續失敗次數達到此值後觸發斷路器 |
+| `circuit_breaker_cooldown` | `float` | `30.0` | 斷路器開啟後的冷卻時間（秒） |
+| `max_queue_size` | `int` | `1000` | 佇列最大容量（0 = 無限制） |
+| `drain_timeout` | `float` | `10.0` | 關閉時等待佇列排空的逾時（秒） |
+
+### RequestPriority
+
+| 值 | 說明 |
+|----|------|
+| `WRITE = 0` | 寫入請求（較高優先權） |
+| `READ = 1` | 讀取請求（較低優先權） |
+
+### ModbusRequestQueue API
+
+| 方法 | 說明 |
+|------|------|
+| `start()` | 啟動背景 worker |
+| `stop()` | 停止背景 worker 並排空佇列 |
+| `submit(unit_id, priority, coroutine_factory, timeout)` | 提交請求到佇列 |
+| `total_size` | 佇列中的總請求數（唯讀屬性） |
+
+#### submit() 例外
+
+| 例外 | 觸發條件 |
+|------|---------|
+| `ModbusQueueFullError` | 佇列已達 `max_queue_size` |
+| `ModbusCircuitBreakerError` | 斷路器開啟（該 unit_id 連續失敗達閾值） |
+| `ModbusError` | 佇列未啟動 |
+| `asyncio.TimeoutError` | 請求逾時 |
+
+### UnitCircuitBreaker
+
+每個 `unit_id` 獨立維護一個斷路器，繼承自 Core 層的 `CircuitBreaker`。
+
+狀態轉換：
+- `CLOSED` → 連續失敗達閾值 → `OPEN`
+- `OPEN` → 冷卻時間過後 → `HALF_OPEN`
+- `HALF_OPEN` → 成功 → `CLOSED`
+- `HALF_OPEN` → 失敗 → `OPEN`
+
+> [!note] 向後相容
+> `CircuitBreakerState` 為 `CircuitState` 的別名，保留向後相容。
+
+### 排程策略
+
+`ModbusRequestQueue` 採用**優先權 + Round-Robin** 公平排程：
+
+1. 掃描所有 unit_id（round-robin 順序）
+2. 跳過斷路器 OPEN 的 unit
+3. 選擇最高優先權的請求；同優先權時以 round-robin 位置決勝
+4. 彈出請求，已服務的 unit 移到 deque 尾端
+
+---
+
 ## 相關頁面
 
 - [[Configuration]] — 連線設定類別（ModbusTcpConfig、ModbusRtuConfig）
+- [[Exceptions]] — ModbusQueueFullError、ModbusCircuitBreakerError
 - [[_MOC Modbus]] — Modbus 模組總覽
