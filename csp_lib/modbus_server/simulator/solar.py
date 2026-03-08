@@ -5,14 +5,12 @@
 from __future__ import annotations
 
 from enum import IntEnum
-from typing import Any
 
 from csp_lib.core import get_logger
 from csp_lib.modbus import Float32, UInt16
 
 from ..behaviors import AlarmBehavior, NoiseBehavior
-from ..behaviors.noise import NoiseType
-from ..config import AlarmPointConfig, AlarmResetMode, SimulatedDeviceConfig, SimulatedPoint, SolarSimConfig
+from ..config import AlarmPointConfig, SimulatedDeviceConfig, SimulatedPoint, SolarSimConfig
 from .base import BaseDeviceSimulator
 
 logger = get_logger("csp_lib.modbus_server.simulator.solar")

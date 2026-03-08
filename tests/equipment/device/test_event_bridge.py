@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from csp_lib.equipment.device.event_bridge import AggregateCondition, EventBridge
-from csp_lib.equipment.device.events import EVENT_CONNECTED, EVENT_DISCONNECTED
+from csp_lib.equipment.device.events import EVENT_CONNECTED
 
 
 def _make_mock_device(device_id: str) -> MagicMock:

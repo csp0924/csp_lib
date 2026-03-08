@@ -1,0 +1,27 @@
+cff-version: 1.2.0
+title: CSP Library
+message: "If you use this software, please cite it as below."
+type: software
+authors:
+  - family-name: Cheng
+    given-name: Sin Pang
+    alias: "鄭善淜"
+    email: donaldpang123@gmail.com
+repository-code: "https://github.com/csp0924/csp_lib"
+url: "https://github.com/csp0924/csp_lib"
+license: Apache-2.0
+version: 0.4.0
+date-released: "2026-03-09"
+keywords:
+  - energy-management
+  - modbus
+  - can-bus
+  - industrial-automation
+  - asyncio
+  - scada
+  - python
+abstract: >-
+  A modular Python toolkit for industrial equipment communication
+  and energy management systems. Provides async Modbus/CAN device
+  abstraction, control strategies, alarm management, and integrations
+  with MongoDB and Redis.

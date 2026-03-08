@@ -80,6 +80,8 @@ tags: [type/reference, status/complete]
 ## 專案資訊
 
 - **套件名稱**: `csp0924_lib`
+- **作者**: Cheng Sin Pang (鄭善淜)
+- **聯絡**: donaldpang123@gmail.com
 - **Python**: 3.13+
 - **目前版本**: 0.4.0
-- **授權**: Proprietary
+- **授權**: Apache-2.0

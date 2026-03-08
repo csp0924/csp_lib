@@ -2,7 +2,6 @@
 #
 # 行為模組單元測試
 
-import pytest
 
 from csp_lib.modbus_server.behaviors.alarm import AlarmBehavior
 from csp_lib.modbus_server.behaviors.noise import NoiseBehavior, NoiseType

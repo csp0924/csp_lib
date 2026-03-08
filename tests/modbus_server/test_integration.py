@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from csp_lib.modbus import Float32, ModbusCodec, UInt16
+from csp_lib.modbus import Float32, ModbusCodec
 from csp_lib.modbus_server.config import (
     AlarmPointConfig,
     AlarmResetMode,

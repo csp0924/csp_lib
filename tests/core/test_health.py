@@ -39,7 +39,7 @@ class TestHealthReport:
         report = HealthReport(status=HealthStatus.HEALTHY, component="test")
         try:
             report.status = HealthStatus.UNHEALTHY  # type: ignore[misc]
-            assert False, "Should raise"
+            raise AssertionError("Should raise")
         except AttributeError:
             pass
 

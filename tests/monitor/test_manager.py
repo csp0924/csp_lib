@@ -6,7 +6,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from csp_lib.core import HealthReport, HealthStatus
-from csp_lib.monitor.collector import SystemMetrics
 from csp_lib.monitor.config import MonitorConfig
 from csp_lib.monitor.manager import SystemMonitor
 

@@ -384,7 +384,6 @@ class TestDataUploadManagerSaveInterval:
         device = MockDevice("device_001")
         manager.subscribe(device, collection_name="data", save_interval=30)
 
-        call_count = [0]
         fake_time = [1000.0]
 
         def mock_monotonic():

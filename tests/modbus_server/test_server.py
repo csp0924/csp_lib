@@ -5,7 +5,7 @@
 import pytest
 
 from csp_lib.modbus import Float32, UInt16
-from csp_lib.modbus_server.config import ServerConfig, SimulatedDeviceConfig, SimulatedPoint
+from csp_lib.modbus_server.config import SimulatedDeviceConfig, SimulatedPoint
 from csp_lib.modbus_server.server import SimulatorDataBlock
 from csp_lib.modbus_server.simulator.base import BaseDeviceSimulator
 

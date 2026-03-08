@@ -311,7 +311,7 @@ class TestDeviceFactoryCreateBatch:
         )
 
         # 驗證各設備的點位位址
-        for device, expected_addr in zip(devices, [100, 300, 600]):
+        for device, expected_addr in zip(devices, [100, 300, 600], strict=True):
             groups = device._scheduler.get_next_groups()
             for group in groups:
                 for point in group.points:
@@ -424,7 +424,7 @@ class TestDeviceFactoryCreateStride:
         )
 
         expected_addresses = [0, 50, 100, 150]
-        for device, expected_addr in zip(devices, expected_addresses):
+        for device, expected_addr in zip(devices, expected_addresses, strict=True):
             groups = device._scheduler.get_next_groups()
             for group in groups:
                 for point in group.points:

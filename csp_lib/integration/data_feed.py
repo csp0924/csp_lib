@@ -19,7 +19,7 @@ from .schema import AggregateFunc, DataFeedMapping
 
 if TYPE_CHECKING:
     from csp_lib.controller.services import PVDataService
-    from csp_lib.equipment.device import AsyncModbusDevice, ReadCompletePayload
+    from csp_lib.equipment.device import ReadCompletePayload
 
 logger = get_logger("csp_lib.integration.data_feed")
 

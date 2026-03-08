@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -15,7 +15,6 @@ from csp_lib.equipment.device.events import (
 )
 from csp_lib.equipment.device.mixins import AlarmMixin, WriteMixin
 from csp_lib.equipment.transport import WriteResult, WriteStatus
-
 
 # ======================== AlarmMixin ========================
 

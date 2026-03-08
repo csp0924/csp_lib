@@ -4,7 +4,7 @@
 
 import pytest
 
-from csp_lib.modbus import ByteOrder, Float32, Int16, RegisterOrder, UInt16, UInt32
+from csp_lib.modbus import Float32, Int16, UInt16, UInt32
 from csp_lib.modbus_server.config import SimulatedPoint
 from csp_lib.modbus_server.register_block import RegisterBlock
 

@@ -7,7 +7,6 @@ import pytest
 from csp_lib.controller.core import Command, StrategyContext
 from csp_lib.controller.protocol import GridControllerBase, GridControllerProtocol
 
-
 # =============== GridControllerProtocol Tests ===============
 
 

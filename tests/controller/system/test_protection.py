@@ -12,7 +12,6 @@ from csp_lib.controller.system.protection import (
     SystemAlarmProtection,
 )
 
-
 # =============== SOCProtection Tests ===============
 
 

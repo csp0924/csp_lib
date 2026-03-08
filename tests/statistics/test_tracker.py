@@ -21,7 +21,6 @@ from csp_lib.statistics.tracker import (
     IntervalRecord,
 )
 
-
 # ======================== IntervalAccumulator — Clock Alignment ========================
 
 

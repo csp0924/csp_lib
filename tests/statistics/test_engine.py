@@ -22,7 +22,6 @@ from csp_lib.statistics.config import (
 )
 from csp_lib.statistics.engine import PowerSumRecord, StatisticsEngine
 
-
 # ======================== Energy Tracking ========================
 
 

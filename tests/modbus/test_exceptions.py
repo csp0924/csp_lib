@@ -13,7 +13,6 @@ from csp_lib.modbus.exceptions import (
     ModbusQueueFullError,
 )
 
-
 # =============== ModbusError (Base) Tests ===============
 
 
@@ -41,7 +40,7 @@ class TestModbusError:
 
     def test_raise_and_catch_as_exception(self):
         """可以用 Exception 捕捉"""
-        with pytest.raises(Exception):
+        with pytest.raises(ModbusError):
             raise ModbusError("base error")
 
 

@@ -13,8 +13,6 @@ from csp_lib.core import get_logger
 from csp_lib.equipment.alarm import AlarmEventType, AlarmState
 from csp_lib.equipment.transport import WriteResult, WriteStatus
 
-logger = get_logger(__name__)
-
 from .events import (
     EVENT_ALARM_CLEARED,
     EVENT_ALARM_TRIGGERED,
@@ -24,6 +22,8 @@ from .events import (
     WriteCompletePayload,
     WriteErrorPayload,
 )
+
+logger = get_logger(__name__)
 
 if TYPE_CHECKING:
     pass

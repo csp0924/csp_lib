@@ -1,14 +1,21 @@
 # CSP Library
 
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.13%2B-blue.svg)](https://www.python.org/)
+[![Version](https://img.shields.io/badge/version-0.4.0-green.svg)](CHANGELOG.md)
+
 CSP Common Library 是一個模組化的 Python 工具集，專為能源管理系統與工業設備通訊設計。
 
 ## 特點
 
 - **分層架構**：Core → Modbus/CAN → Equipment → Controller → Manager → Integration
+- **多協議支援**：Modbus TCP/RTU 與 CAN Bus 雙協議設備抽象
 - **Async-first**：所有設備 I/O 與管理器皆採用 asyncio
 - **Event-driven**：設備事件系統（值變化、告警、連線狀態、點位開關、重配置）
+- **韌性機制**：CircuitBreaker 斷路器 + RetryPolicy 重試策略
 - **動態重配置**：執行期替換點位定義、告警評估器，無需重建設備物件
-- **點位開關**：個別停用/啟用點位，Modbus 讀取不中斷
+- **功率分配**：PowerDistributor 支援均分、比例、SOC 均衡等多機分配策略
+- **事件驅動 Override**：基於告警或上下文條件自動切換控制模式
 - **按需安裝**：Optional dependencies 避免引入不必要的套件
 - **Frozen dataclass configs**：不可變設定物件，確保執行時安全
 
@@ -20,10 +27,12 @@ pip install csp0924_lib
 
 # 按需安裝特定功能
 pip install csp0924_lib[modbus]     # Modbus 通訊
+pip install csp0924_lib[can]        # CAN Bus 通訊
 pip install csp0924_lib[mongo]      # MongoDB 批次上傳
 pip install csp0924_lib[redis]      # Redis 客戶端
 pip install csp0924_lib[monitor]    # 系統監控 (psutil)
 pip install csp0924_lib[cluster]    # 分散式叢集 (etcd)
+pip install csp0924_lib[gui]        # FastAPI Web GUI
 pip install csp0924_lib[all]        # 所有功能
 ```
 
@@ -224,6 +233,44 @@ class MyComponent:
 | `DEGRADED` | 部分降級 |
 | `UNHEALTHY` | 異常 |
 
+### Resilience（韌性機制）
+
+```python
+from csp_lib.core import CircuitBreaker, RetryPolicy, CircuitState
+
+# Circuit Breaker — 連續失敗自動斷路
+breaker = CircuitBreaker(
+    failure_threshold=5,    # 連續 5 次失敗後斷路
+    recovery_timeout=30.0,  # 30 秒後進入 HALF_OPEN
+    half_open_max=1,        # HALF_OPEN 時最多允許 1 次嘗試
+)
+
+async with breaker:
+    result = await risky_operation()
+
+# 狀態查詢
+breaker.state       # CircuitState.CLOSED / OPEN / HALF_OPEN
+breaker.failure_count
+breaker.reset()     # 手動重置
+
+# Retry Policy — 指數退避重試
+retry = RetryPolicy(
+    max_retries=3,
+    base_delay=1.0,
+    max_delay=30.0,
+    backoff_factor=2.0,
+    retryable_exceptions=(ConnectionError, TimeoutError),
+)
+
+result = await retry.execute(risky_operation)
+```
+
+| CircuitState | 說明 |
+|-------------|------|
+| `CLOSED` | 正常通過 |
+| `OPEN` | 斷路（拒絕所有請求） |
+| `HALF_OPEN` | 半開（允許有限嘗試） |
+
 ---
 
 ## Modbus 模組 (`csp_lib.modbus`)
@@ -313,7 +360,68 @@ decoded = codec.decode(Float32(), encoded)
 
 ---
 
+## CAN Bus 模組 (`csp_lib.can`)
+
+需安裝：`pip install csp0924_lib[can]`
+
+基於 python-can 的 CAN Bus 通訊抽象，支援多種硬體介面。
+
+### 配置
+
+```python
+from csp_lib.can import CANConfig, CANFilterConfig
+
+config = CANConfig(
+    interface="socketcan",     # or "pcan", "kvaser", "virtual"
+    channel="can0",
+    bitrate=250000,
+    filters=[
+        CANFilterConfig(can_id=0x100, can_mask=0x7FF),
+    ],
+)
+```
+
+### 客戶端
+
+```python
+from csp_lib.can import AsyncCANClient
+
+client = AsyncCANClient(config)
+async with client:
+    # 傳送
+    await client.send(arbitration_id=0x100, data=b"\x01\x02\x03")
+
+    # 接收
+    msg = await client.receive(timeout=1.0)
+```
+
+### 例外
+
+| 例外 | 說明 |
+|------|------|
+| `CANError` | CAN 基礎例外 |
+| `CANConfigError` | 配置錯誤 |
+| `CANConnectionError` | 連線錯誤 |
+| `CANTimeoutError` | 逾時錯誤 |
+
+---
+
 ## Equipment 模組 (`csp_lib.equipment`)
+
+### DeviceProtocol
+
+所有設備的標準協議介面（`@runtime_checkable Protocol`）：
+
+```python
+from csp_lib.equipment.device import DeviceProtocol
+
+# 任何設備（Modbus/CAN）都實作此協議
+def accept_any_device(device: DeviceProtocol) -> None:
+    print(device.device_id)
+    print(device.is_connected)
+    print(device.is_healthy)
+    print(device.latest_values)
+```
 
 ### 點位定義
 
@@ -581,6 +689,7 @@ from csp_lib.equipment.processing import (
     CoilToBitmaskAggregator,
     ComputedValueAggregator,
     AggregatorPipeline,
+    CANEncoder,
 )
 ```
 
@@ -589,6 +698,44 @@ from csp_lib.equipment.processing import (
 | `CoilToBitmaskAggregator` | Coil 轉 Bitmask |
 | `ComputedValueAggregator` | 計算衍生值 |
 | `AggregatorPipeline` | 串聯多個聚合器 |
+| `CANEncoder` | CAN 訊號編碼器 |
+
+### AsyncCANDevice
+
+CAN Bus 設備抽象，與 `AsyncModbusDevice` 共享相同的 `DeviceProtocol` 介面：
+
+```python
+from csp_lib.equipment.device import AsyncCANDevice, CANDeviceConfig
+from csp_lib.can import AsyncCANClient, CANConfig
+
+config = CANDeviceConfig(
+    device_id="bms_can_001",
+    arbitration_id=0x100,
+    read_interval=0.1,
+)
+client = AsyncCANClient(CANConfig(interface="socketcan", channel="can0"))
+device = AsyncCANDevice(config=config, client=client)
+
+async with device:
+    values = await device.read_all()
+```
+
+### PeriodicSendScheduler
+
+CAN 週期性傳送排程器：
+
+```python
+from csp_lib.equipment.transport import PeriodicSendScheduler, PeriodicSendConfig
+
+scheduler = PeriodicSendScheduler(
+    client=can_client,
+    configs=[
+        PeriodicSendConfig(arbitration_id=0x200, data=b"\x01\x00", interval=0.1),
+    ],
+)
+async with scheduler:
+    ...  # 自動週期傳送
+```
 
 ### 模擬
 
@@ -759,6 +906,56 @@ strategy = IslandModeStrategy(
 # on_deactivate: waits for sync_ok, then closes ACB (returns to grid)
 ```
 
+#### 負載卸載
+
+```python
+from csp_lib.controller import LoadSheddingStrategy, LoadSheddingConfig
+
+strategy = LoadSheddingStrategy(LoadSheddingConfig(
+    priority_order=["hvac", "lighting", "charging"],
+    max_total_kw=500,
+    shed_step_kw=50,
+))
+# 依優先序逐步卸載負載，直到總功率 ≤ max_total_kw
+```
+
+### EventDrivenOverride
+
+基於告警或上下文條件的自動策略覆蓋：
+
+```python
+from csp_lib.controller import (
+    AlarmStopOverride, ContextKeyOverride,
+    EventDrivenOverrideProtocol,
+)
+
+# 告警觸發時自動切換到 StopStrategy
+alarm_override = AlarmStopOverride(
+    alarm_codes=["OVER_TEMP", "EMERGENCY"],
+)
+
+# 上下文鍵值匹配時觸發覆蓋
+context_override = ContextKeyOverride(
+    context_key="grid_status",
+    trigger_value="disconnected",
+    override_mode="island",
+)
+```
+
+### StrategyDiscovery
+
+自動掃描可用策略：
+
+```python
+from csp_lib.controller import discover_strategies, StrategyDescriptor
+
+# 掃描所有已註冊策略
+descriptors: list[StrategyDescriptor] = discover_strategies()
+for desc in descriptors:
+    print(f"{desc.name}: {desc.description}")
+    print(f"  required_capabilities: {desc.required_capabilities}")
+```
+
 ### StrategyExecutor
 
 管理策略的執行生命週期：
@@ -793,10 +990,10 @@ config = PQModeConfig.from_dict({"p": 100, "q": 50, "extra": "ignored"})
 
 #### ModeManager
 
-模式註冊與優先權切換：
+模式註冊與優先權切換，支援來源追蹤：
 
 ```python
-from csp_lib.controller import ModeManager, ModePriority
+from csp_lib.controller import ModeManager, ModePriority, SwitchSource
 
 manager = ModeManager(on_strategy_change=handle_change)
 
@@ -825,6 +1022,14 @@ await manager.add_base_mode("qv")
 | `SCHEDULE` | 10 | 排程模式 |
 | `MANUAL` | 50 | 手動模式 |
 | `PROTECTION` | 100 | 保護模式 |
+
+| SwitchSource | 說明 |
+|-------------|------|
+| `API` | API 手動切換 |
+| `SCHEDULE` | 排程自動切換 |
+| `PROTECTION` | 保護機制觸發 |
+| `EVENT_OVERRIDE` | 事件驅動覆蓋 |
+| `CLUSTER` | 叢集同步 |
 
 #### ProtectionGuard
 
@@ -1104,13 +1309,78 @@ async with loop:
     await asyncio.sleep(3600)
 ```
 
-### SystemController
+### PowerDistributor
 
-進階系統控制器，整合 ModeManager + ProtectionGuard：
+多機功率分配協議與內建實作：
 
 ```python
-from csp_lib.integration import SystemController, SystemControllerConfig
-from csp_lib.controller import ModePriority, SOCProtection
+from csp_lib.integration import (
+    EqualDistributor,
+    ProportionalDistributor,
+    SOCBalancingDistributor,
+)
+
+# 均分
+distributor = EqualDistributor()
+
+# 依容量比例分配
+distributor = ProportionalDistributor()
+
+# SOC 均衡分配（低 SOC 優先充電、高 SOC 優先放電）
+distributor = SOCBalancingDistributor()
+```
+
+自訂分配器需實作 `PowerDistributorProtocol`：
+
+```python
+from csp_lib.integration import PowerDistributorProtocol, DeviceAllocation
+
+class MyDistributor(PowerDistributorProtocol):
+    def distribute(
+        self, total_p: float, total_q: float, devices: list[DeviceAllocation]
+    ) -> dict[str, tuple[float, float]]:
+        # Return {device_id: (p, q)} mapping
+        ...
+```
+
+### CapabilityBinding
+
+Capability-based 設備綁定，取代 trait-based 映射：
+
+```python
+from csp_lib.integration import (
+    CapabilityCommandMapping,
+    CapabilityContextMapping,
+)
+
+# 依 capability 建立上下文映射
+ctx_mapping = CapabilityContextMapping(
+    capability="meter",
+    point_name="power",
+    context_field="extra.meter_power",
+)
+
+# 依 capability 建立命令映射
+cmd_mapping = CapabilityCommandMapping(
+    capability="pcs",
+    command_field="p_target",
+    point_name="p_setpoint",
+)
+```
+
+### SystemController
+
+進階系統控制器，整合 ModeManager + ProtectionGuard + PowerDistributor + EventDrivenOverride：
+
+```python
+from csp_lib.integration import (
+    SystemController, SystemControllerConfig,
+    EqualDistributor,
+)
+from csp_lib.controller import (
+    ModePriority, SOCProtection, ReversePowerProtection,
+    AlarmStopOverride,
+)
 
 config = SystemControllerConfig(
     context_mappings=[...],
@@ -1118,7 +1388,8 @@ config = SystemControllerConfig(
     system_base=SystemBase(p_base=1000, q_base=500),
     protection_rules=[SOCProtection(), ReversePowerProtection()],
     auto_stop_on_alarm=True,
-    capacity_kva=1000,  # Enable CascadingStrategy for multi base mode
+    capacity_kva=1000,
+    power_distributor=EqualDistributor(),  # 多機功率分配
 )
 
 controller = SystemController(registry, config)
@@ -1127,14 +1398,18 @@ controller = SystemController(registry, config)
 controller.register_mode("schedule", schedule_strategy, ModePriority.SCHEDULE)
 controller.register_mode("manual", pq_strategy, ModePriority.MANUAL)
 
+# Register event-driven overrides
+controller.register_event_override(AlarmStopOverride(alarm_codes=["EMERGENCY"]))
+
 # Set mode
 await controller.set_base_mode("schedule")
 
 async with controller:
     # Full control loop with:
     #   ContextBuilder → StrategyContext (+ system_alarm injection)
+    #   EventDrivenOverride evaluation
     #   StrategyExecutor (strategy from ModeManager)
-    #   Command → ProtectionGuard → CommandRouter
+    #   Command → ProtectionGuard → PowerDistributor → CommandRouter
     await asyncio.sleep(3600)
 ```
 
@@ -1143,9 +1418,13 @@ async with controller:
 ```
 ContextBuilder.build() → StrategyContext (inject system_alarm)
        ↓
+EventDrivenOverride → (conditional mode switch)
+       ↓
 StrategyExecutor (strategy decided by ModeManager)
        ↓
 Command (raw) → ProtectionGuard.apply() → Command (protected)
+       ↓
+PowerDistributor.distribute() → per-device P/Q allocation
        ↓
 CommandRouter.route() → Device writes
 ```
@@ -1616,10 +1895,13 @@ async with server:
 | `02_device_template.py` | 設備模板定義 |
 | `03_control_strategies.py` | 控制策略使用 |
 | `04_grid_control_loop.py` | GridControlLoop 整合 |
-| `05_system_controller.py` | SystemController 進階控制 |
-| `06_custom_strategy.py` | 自訂策略開發 |
-| `11_cascading_strategy.py` | **CascadingStrategy 深入示範** — delta-based clamping、多層分配、容量限制、階層控制預覽 |
-| `demo_full_system.py` | **完整系統整合 Demo** — 涵蓋設備建立、Registry、控制迴圈、模式切換與保護機制的端到端範例 |
+| `05_system_controller.py` | SystemController 進階控制（含 EventDrivenOverride + PowerDistributor） |
+| `06_custom_strategy.py` | 自訂策略開發（含 required_capabilities） |
+| `09_advanced_strategies.py` | 進階策略（LoadShedding + EventOverride） |
+| `11_cascading_strategy.py` | CascadingStrategy 深入示範 — delta-based clamping、多層分配 |
+| `13_can_device.py` | AsyncCANDevice 完整範例 — CAN Bus 設備建立與事件監聽 |
+| `14_power_distributor.py` | 多機功率分配 — Equal/Proportional/SOCBalancing 策略 |
+| `demo_full_system.py` | 完整系統整合 Demo — 端到端範例 |
 
 ---
 
@@ -1661,8 +1943,53 @@ SKIP_CYTHON=1 pip install -e .     # Editable install without Cython
 
 ---
 
+## Powered by CSP Library
+
+以下組織與專案正在使用 CSP Library：
+
+<!-- LOGO_WALL_START -->
+<!-- 在此處加入你的 logo！-->
+<!-- LOGO_WALL_END -->
+
+> **你的公司也在使用 CSP Library 嗎？**
+>
+> 我們很樂意在這裡展示你的 logo！請透過以下方式告訴我們：
+> - 開一個 [GitHub Issue](https://github.com/csp0924/csp_lib/issues) 並附上你的 logo 與簡短說明
+> - 或寄信到 donaldpang123@gmail.com
+>
+> 展示你的 logo 不僅能讓更多人認識你的專案，也幫助我們建立一個更強大的社群。
+
+---
+
+## 引用
+
+如果你在學術研究中使用了 CSP Library，請引用：
+
+```bibtex
+@software{csp_library,
+  title = {CSP Library},
+  author = {Cheng Sin Pang (鄭善淜)},
+  year = {2024},
+  url = {https://github.com/csp0924/csp_lib},
+  version = {0.4.0},
+  license = {Apache-2.0}
+}
+```
+
+詳見 [CITATION.cff](CITATION.cff)。
+
+---
+
+## 授權
+
+本專案採用 [Apache License 2.0](LICENSE) 授權。
+
+Copyright 2024-2026 Cheng Sin Pang(鄭善淜)
+
+---
+
 ## 版本
 
-目前版本：`0.3.3`
+目前版本：`0.4.0`
 
 詳見 [CHANGELOG.md](CHANGELOG.md)。

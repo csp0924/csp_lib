@@ -4,12 +4,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from csp_lib.modbus import Float32, UInt16
 
 from ..behaviors import NoiseBehavior
-from ..behaviors.noise import NoiseType
 from ..config import PowerMeterSimConfig, SimulatedDeviceConfig, SimulatedPoint
 from .base import BaseDeviceSimulator
 

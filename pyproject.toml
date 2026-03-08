@@ -2,7 +2,12 @@
 name = "csp0924_lib"
 dynamic = ["version"]
 description = "CSP Common Library - 模組化工具集"
+authors = [
+    {name = "Cheng Sin Pang (鄭善淜)", email = "donaldpang123@gmail.com"},
+]
 readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "loguru>=0.7.0",

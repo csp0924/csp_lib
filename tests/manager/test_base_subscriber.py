@@ -13,12 +13,11 @@
 from __future__ import annotations
 
 from typing import Callable
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 import pytest
 
 from csp_lib.manager.base import DeviceEventSubscriber
-
 
 # ======================== Test Fixtures & Helpers ========================
 

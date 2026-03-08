@@ -146,7 +146,7 @@ class TestRemoteCommandRouterRoute:
         sub = _make_subscriber(online={"d1": True})
         mappings = [CommandMapping(command_field="p_target", point_name="sp", device_id="d1")]
 
-        router = RemoteCommandRouter(config, redis, sub, mappings)
+        _router = RemoteCommandRouter(config, redis, sub, mappings)
         # Command with default p_target=0.0 but we test with a field that is None
         cmd = Command()
         # q_target defaults to 0.0, not None, so route with an explicit mapping for non-existent field

@@ -11,11 +11,8 @@
 
 from __future__ import annotations
 
-import pytest
-
 from csp_lib.equipment.transport.base import ReadGroup
 from csp_lib.equipment.transport.scheduler import ReadScheduler
-
 
 # ======================== Helper Factories ========================
 

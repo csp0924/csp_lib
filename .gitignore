@@ -163,3 +163,6 @@ cover/
 __pypackages__/
 
 .claude/
+CLAUDE.md
+.coverage
+.ruff_cache/

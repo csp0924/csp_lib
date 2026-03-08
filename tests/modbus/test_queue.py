@@ -397,12 +397,12 @@ class TestModbusRequestQueue:
         await queue.start()
 
         # Block the worker and queue more requests
-        f1 = asyncio.ensure_future(
+        _f1 = asyncio.ensure_future(
             queue.submit(unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op)
         )
         await asyncio.sleep(0.05)
 
-        f2 = asyncio.ensure_future(
+        _f2 = asyncio.ensure_future(
             queue.submit(unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op)
         )
         await asyncio.sleep(0.05)

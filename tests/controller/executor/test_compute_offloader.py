@@ -1,7 +1,6 @@
 """Tests for csp_lib.controller.executor.compute_offloader."""
 
 import threading
-import time
 
 import pytest
 

@@ -14,7 +14,6 @@ from csp_lib.monitor.collector import (
 )
 from csp_lib.monitor.config import MonitorConfig
 
-
 # ================ SystemMetrics ================
 
 

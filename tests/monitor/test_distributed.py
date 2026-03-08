@@ -13,7 +13,6 @@ from csp_lib.equipment.alarm.state import AlarmEvent, AlarmEventType
 from csp_lib.monitor.collector import InterfaceMetrics, SystemMetrics
 from csp_lib.monitor.config import (
     DistributedMonitorConfig,
-    MetricThresholds,
     MonitorConfig,
     NetworkThresholds,
 )
@@ -24,7 +23,6 @@ from csp_lib.monitor.distributed import (
     NodeRegistration,
 )
 from csp_lib.monitor.publisher import RedisMonitorPublisher
-
 
 # ================ NetworkThresholds ================
 

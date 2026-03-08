@@ -10,7 +10,7 @@ from csp_lib.controller.system import ModePriority
 from csp_lib.core.health import HealthReport, HealthStatus
 from csp_lib.integration.group_controller import GroupControllerManager, GroupDefinition
 from csp_lib.integration.registry import DeviceRegistry
-from csp_lib.integration.schema import CommandMapping, ContextMapping
+from csp_lib.integration.schema import CommandMapping
 from csp_lib.integration.system_controller import SystemControllerConfig
 
 

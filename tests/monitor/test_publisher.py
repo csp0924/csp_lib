@@ -2,16 +2,16 @@
 
 import json
 from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
 import pytest
 
+from csp_lib.core import HealthStatus
 from csp_lib.equipment.alarm.definition import AlarmDefinition, AlarmLevel
 from csp_lib.equipment.alarm.state import AlarmEvent, AlarmEventType
 from csp_lib.monitor.collector import ModuleHealthSnapshot, ModuleStatus, SystemMetrics
 from csp_lib.monitor.config import MonitorConfig
 from csp_lib.monitor.publisher import RedisMonitorPublisher
-from csp_lib.core import HealthStatus
 
 
 @pytest.fixture

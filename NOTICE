@@ -1,0 +1,50 @@
+CSP Library
+Copyright 2024-2026 Cheng Sin Pang (鄭善淜)
+
+This product includes software developed by Cheng Sin Pang (鄭善淜).
+Project URL: https://github.com/csp0924/csp_lib
+
+================================================================================
+
+THIRD-PARTY NOTICES
+
+This software may include the following third-party components, each subject
+to their own license terms:
+
+  - pymodbus (BSD-3-Clause) — Modbus protocol implementation
+  - python-can (LGPL-3.0) — CAN bus interface
+  - motor (Apache-2.0) — Async MongoDB driver
+  - redis-py (MIT) — Redis client
+  - FastAPI (MIT) — Web framework
+  - loguru (MIT) — Logging library
+  - etcetra (MIT) — etcd client
+
+Please refer to each package's own license for details.
+
+================================================================================
+
+CITATION
+
+If you use CSP Library in academic work, please cite:
+
+  Cheng, S. P. (2026). CSP Library (Version 0.4.0) [Computer software].
+  https://github.com/csp0924/csp_lib
+
+A machine-readable citation file is available at CITATION.cff in the
+repository root.
+
+================================================================================
+
+ADOPTERS
+
+We maintain a list of organizations and projects using CSP Library.
+If your company or project is powered by CSP Library, we would love to
+feature your logo and story!
+
+How to get listed:
+  - Open an issue at https://github.com/csp0924/csp_lib/issues
+    with the title "Add Adopter: [Your Organization]"
+  - Or email donaldpang123@gmail.com
+
+Current adopters:
+  (Your organization could be here!)

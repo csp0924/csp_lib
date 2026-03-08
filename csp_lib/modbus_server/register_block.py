@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from csp_lib.modbus import ByteOrder, ModbusCodec, ModbusDataType, RegisterOrder
+from csp_lib.modbus import ModbusCodec
 
 from .config import SimulatedPoint
 

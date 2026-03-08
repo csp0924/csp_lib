@@ -4,7 +4,6 @@ import pytest
 
 from csp_lib.monitor.config import MetricThresholds, MonitorConfig
 
-
 # ================ MetricThresholds ================
 
 

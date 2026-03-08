@@ -12,7 +12,7 @@ from csp_lib.core import get_logger
 from csp_lib.modbus import Float32, UInt16
 
 from ..behaviors import AlarmBehavior, RampBehavior
-from ..config import AlarmPointConfig, AlarmResetMode, GeneratorSimConfig, SimulatedDeviceConfig, SimulatedPoint
+from ..config import AlarmPointConfig, GeneratorSimConfig, SimulatedDeviceConfig, SimulatedPoint
 from .base import BaseDeviceSimulator
 
 logger = get_logger("csp_lib.modbus_server.simulator.generator")

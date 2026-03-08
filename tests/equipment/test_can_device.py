@@ -4,7 +4,6 @@
 
 import asyncio
 import time
-from unittest.mock import AsyncMock
 
 import pytest
 
