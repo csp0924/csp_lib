@@ -41,7 +41,7 @@ Manager 模組建構在 [[_MOC Equipment|Equipment]] 與 [[_MOC Integration|Inte
 |------|------|------|
 | [[UnifiedDeviceManager]] | class | 整合所有 Manager 的統一入口 |
 
-### 排程服務（v0.4.0 新增）
+### 排程服務（v0.4.1 新增）
 
 | 頁面 | 類型 | 說明 |
 |------|------|------|

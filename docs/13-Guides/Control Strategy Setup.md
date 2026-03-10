@@ -205,7 +205,7 @@ cascading = CascadingStrategy(
 
 ---
 
-## 進階功能（v0.4.0 新增）
+## 進階功能（v0.4.1 新增）
 
 ### LoadSheddingStrategy（負載卸載）
 

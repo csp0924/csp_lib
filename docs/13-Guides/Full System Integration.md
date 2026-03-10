@@ -289,7 +289,7 @@ async with manager:
 
 ---
 
-## PowerDistributor：多機功率分配（v0.4.0 新增）
+## PowerDistributor：多機功率分配（v0.4.1 新增）
 
 當系統有多台 PCS 或 BESS 需要分配功率時，使用 [[PowerDistributor]] 搭配 `capability_command_mappings` 進行 per-device 智能分配：
 

@@ -75,7 +75,7 @@ class SwitchSource(Enum):
 | `add_base_mode(name, *, source=None)` | 新增基礎模式 (多 base mode 共存)；`source` 為可選 `SwitchSource`，用於審計 |
 | `remove_base_mode(name, *, source=None)` | 移除指定基礎模式；`source` 為可選 `SwitchSource`，用於審計 |
 
-### 模式策略更新（v0.4.0 新增）
+### 模式策略更新（v0.4.1 新增）
 
 | 方法 | 說明 |
 |------|------|
@@ -170,7 +170,7 @@ await manager.add_base_mode("qv")
 
 > [!note] 多 base mode 時 `effective_strategy` 回傳 `None`，應由 SystemController 組合為 [[CascadingStrategy]]。
 
-## 進階用法（v0.4.0 新增）
+## 進階用法（v0.4.1 新增）
 
 ### 動態策略替換（排程場景）
 

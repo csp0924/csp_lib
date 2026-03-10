@@ -32,7 +32,7 @@ from csp_lib.core import (
     HealthStatus,
     HealthReport,
     HealthCheckable,
-    # Resilience (v0.4.0)
+    # Resilience (v0.4.1)
     CircuitState,
     CircuitBreaker,
     RetryPolicy,
@@ -81,7 +81,7 @@ from csp_lib.modbus import (
     ModbusTcpConfig, ModbusRtuConfig,
     # 編解碼
     ModbusCodec,
-    # 請求佇列（v0.4.0）
+    # 請求佇列（v0.4.1）
     RequestQueueConfig,
     RequestPriority,
     CircuitBreakerState,
@@ -120,14 +120,14 @@ from csp_lib.equipment.core import (
 from csp_lib.equipment.device import (
     # Modbus 設備
     AsyncModbusDevice,
-    # CAN 設備（v0.4.0）
+    # CAN 設備（v0.4.1）
     AsyncCANDevice,
     CANRxFrameDefinition,
-    # 協定（v0.4.0）
+    # 協定（v0.4.1）
     DeviceProtocol,
     # 配置
     DeviceConfig,
-    # Capability（v0.4.0 能力綁定系統）
+    # Capability（v0.4.1 能力綁定系統）
     Capability,
     CapabilityBinding,
     HEARTBEAT,
@@ -142,7 +142,7 @@ from csp_lib.equipment.device import (
     # Mixins
     AlarmMixin,
     WriteMixin,
-    # EventBridge（v0.4.0）
+    # EventBridge（v0.4.1）
     AggregateCondition,
     EventBridge,
     # 事件
@@ -156,11 +156,11 @@ from csp_lib.equipment.device import (
     WriteCompletePayload,
     WriteErrorPayload,
     DeviceAlarmPayload,
-    # 事件（v0.4.0 新增）
+    # 事件（v0.4.1 新增）
     ReconfiguredPayload,
     RestartedPayload,
     PointToggledPayload,
-    # 動態點位管理（v0.4.0）
+    # 動態點位管理（v0.4.1）
     PointInfo,
     ReconfigureSpec,
     # 事件常數
@@ -233,7 +233,7 @@ from csp_lib.controller import (
     FPStrategy, FPConfig,
     IslandModeStrategy, IslandModeConfig, RelayProtocol,
     BypassStrategy, StopStrategy, ScheduleStrategy,
-    # 負載卸載策略（v0.4.0）
+    # 負載卸載策略（v0.4.1）
     LoadSheddingStrategy, LoadSheddingConfig,
     LoadCircuitProtocol, ShedCondition,
     ShedStage, ThresholdCondition, RemainingTimeCondition,
@@ -243,11 +243,11 @@ from csp_lib.controller import (
     SOCProtection, SOCProtectionConfig,
     ReversePowerProtection, SystemAlarmProtection,
     CascadingStrategy, CapacityConfig,
-    # 事件驅動覆蓋（v0.4.0）
+    # 事件驅動覆蓋（v0.4.1）
     EventDrivenOverride, AlarmStopOverride, ContextKeyOverride,
-    # 排程模式控制協定（v0.4.0）
+    # 排程模式控制協定（v0.4.1）
     ScheduleModeController,
-    # 策略發現（v0.4.0）
+    # 策略發現（v0.4.1）
     ENTRY_POINT_GROUP, StrategyDescriptor, discover_strategies,
 )
 ```
@@ -275,7 +275,7 @@ from csp_lib.manager import (
     DataUploadManager,
     # 設備
     DeviceManager, DeviceGroup,
-    # 排程（v0.4.0）
+    # 排程（v0.4.1）
     ScheduleService, ScheduleServiceConfig,
     ScheduleRepository, MongoScheduleRepository,
     ScheduleRule, ScheduleType,
@@ -304,9 +304,9 @@ from csp_lib.integration import (
     ContextBuilder, apply_builtin_aggregate,
     CommandRouter,
     DeviceDataFeed,
-    # 心跳服務（v0.4.0）
+    # 心跳服務（v0.4.1）
     HeartbeatService,
-    # 功率分配器（v0.4.0）
+    # 功率分配器（v0.4.1）
     DeviceSnapshot,
     PowerDistributor,
     EqualDistributor,
@@ -321,7 +321,7 @@ from csp_lib.integration import (
     # 編排器
     SystemCommandOrchestrator, SystemCommand, CommandStep,
     StepCheck, StepResult, SystemCommandResult,
-    # 分散式控制（v0.4.0）
+    # 分散式控制（v0.4.1）
     DistributedConfig, RemoteSiteConfig,
     DeviceStateSubscriber, RemoteCommandRouter,
     DistributedController, RemoteSiteRunner,

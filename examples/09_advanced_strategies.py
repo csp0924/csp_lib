@@ -6,8 +6,8 @@ csp_lib Example 09: 進階策略與保護規則
   - Section B: PVSmoothStrategy 光伏平滑策略（模擬 PV 資料）
   - Section C: FPStrategy 頻率-功率響應曲線
   - Section D: ModeManager 基礎模式切換與覆蓋堆疊
-  - Section E: LoadSheddingStrategy 階段性負載卸載（v0.4.0 新增）
-  - Section F: EventDrivenOverride 事件驅動自動 Override（v0.4.0 新增）
+  - Section E: LoadSheddingStrategy 階段性負載卸載（v0.4.1 新增）
+  - Section F: EventDrivenOverride 事件驅動自動 Override（v0.4.1 新增）
 
 Run: uv run python examples/09_advanced_strategies.py
 """

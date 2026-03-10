@@ -254,7 +254,7 @@ await device.reconfigure(full_spec)
 | `restarted` | `EVENT_RESTARTED` | `RestartedPayload` | 讀取迴圈重啟 |
 | `point_toggled` | `EVENT_POINT_TOGGLED` | `PointToggledPayload` | 點位啟用/停用 |
 
-### 新增 Payload 類別（v0.4.0）
+### 新增 Payload 類別（v0.4.1）
 
 **ReconfiguredPayload**
 

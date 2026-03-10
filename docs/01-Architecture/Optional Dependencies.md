@@ -31,7 +31,7 @@ pip install csp0924_lib
 # 安裝 Modbus 通訊支援
 pip install csp0924_lib[modbus]
 
-# 安裝 CAN Bus 通訊支援（v0.4.0）
+# 安裝 CAN Bus 通訊支援（v0.4.1）
 pip install csp0924_lib[can]
 
 # 安裝 MongoDB 儲存支援
@@ -58,7 +58,7 @@ pip install csp0924_lib[all]
 | 可選依賴 | 第三方套件 | 提供功能 | 對應模組 |
 |---------|-----------|---------|---------|
 | `modbus` | `pymodbus>=3.0.0` | Modbus TCP/RTU 非同步通訊 | [[_MOC Modbus]] |
-| `can` | `python-can>=4.0` | CAN Bus 幀收發（v0.4.0） | [[_MOC CAN]] |
+| `can` | `python-can>=4.0` | CAN Bus 幀收發（v0.4.1） | [[_MOC CAN]] |
 | `mongo` | `motor>=3.0.0` | MongoDB 非同步客戶端、批次上傳 | [[_MOC Storage]] |
 | `redis` | `redis>=5.0.0` | Redis Hash/Set/Pub/Sub 操作 | [[_MOC Storage]] |
 | `monitor` | `psutil>=5.9.0` | 系統資源監控 (CPU/RAM/Disk) | [[_MOC Monitor]] |

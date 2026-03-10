@@ -15,7 +15,7 @@ created: 2026-03-06
 
 ## 概述
 
-在 v0.4.0 之前，系統遇到告警時的自動停機邏輯是在 `SystemController._handle_auto_stop()` 中**硬編碼**的。這意味著：
+在 v0.4.1 之前，系統遇到告警時的自動停機邏輯是在 `SystemController._handle_auto_stop()` 中**硬編碼**的。這意味著：
 
 - 無法自訂觸發條件（只支援 `system_alarm`）
 - 無法重用相同機制處理其他系統事件（如 ACB 跳脫、頻率偏差）
@@ -227,13 +227,13 @@ controller.register_event_override(custom_stop)
 ## 遷移說明：_handle_auto_stop 的變更
 
 > [!warning] 向後相容變更
-> `_handle_auto_stop()` 在 v0.4.0 中已標記為棄用（但保留向後相容），現在內部直接呼叫 `_evaluate_event_overrides()`。
+> `_handle_auto_stop()` 在 v0.4.1 中已標記為棄用（但保留向後相容），現在內部直接呼叫 `_evaluate_event_overrides()`。
 
 **舊版行為（v0.3.x）**：
 - `SystemControllerConfig(auto_stop_on_alarm=True)` 使用硬編碼的 `_handle_auto_stop()` 邏輯
 - 無法自訂觸發條件或添加其他事件 override
 
-**新版行為（v0.4.0+）**：
+**新版行為（v0.4.1+）**：
 - `auto_stop_on_alarm=True` 時，自動建立並註冊 `AlarmStopOverride(name="__auto_stop__", alarm_key=config.system_alarm_key)`
 - `_auto_stop_active` 屬性仍然有效（由 `_evaluate_event_overrides` 內部維護向後相容）
 - 可額外呼叫 `register_event_override()` 添加更多事件驅動 override
