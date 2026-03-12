@@ -241,6 +241,8 @@ class ModbusRequestQueue:
                 if not self._running:
                     break
                 self._event.clear()
+                if self._total_size > 0:
+                    continue  # 有新 request 進來，直接回去 dequeue
                 await self._event.wait()
                 continue
 
