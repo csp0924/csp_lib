@@ -87,7 +87,7 @@ jobs:
           SKIP_CYTHON: "1"
 
       - name: Run tests with coverage
-        run: uv run pytest tests/ -v --cov=csp_lib --cov-report=xml
+        run: uv run pytest tests/ -v -n auto --cov=csp_lib --cov-report=xml
 
       - name: Upload coverage report
         if: matrix.os == 'ubuntu-latest'
