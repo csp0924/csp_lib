@@ -661,6 +661,90 @@ class TestModbusRequestQueue:
             await queue.stop()
 
     @pytest.mark.asyncio
+    async def test_event_recheck_after_clear(self):
+        """Worker clear 後若 total_size > 0，應立即回去 dequeue 而非阻塞在 wait"""
+        config = RequestQueueConfig(default_timeout=2.0)
+        queue = ModbusRequestQueue(config)
+        await queue.start()
+        try:
+            # 連續兩個 submit，第二個應在 worker 處理完第一個後被迅速處理
+            r1 = await queue.submit(
+                unit_id=1,
+                priority=RequestPriority.READ,
+                coroutine_factory=lambda: _async_value("first"),
+            )
+            assert r1 == "first"
+
+            r2 = await queue.submit(
+                unit_id=1,
+                priority=RequestPriority.READ,
+                coroutine_factory=lambda: _async_value("second"),
+                timeout=1.0,
+            )
+            assert r2 == "second"
+        finally:
+            await queue.stop()
+
+    @pytest.mark.asyncio
+    async def test_queue_full_exact_limit(self):
+        """並行 submit 不應超過 max_queue_size (TOCTOU 防護)"""
+        gate = asyncio.Event()
+
+        async def blocking_op():
+            await gate.wait()
+            return True
+
+        config = RequestQueueConfig(max_queue_size=2, default_timeout=5.0)
+        queue = ModbusRequestQueue(config)
+        await queue.start()
+        try:
+            # Block worker with one request
+            f_block = asyncio.ensure_future(
+                queue.submit(unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op)
+            )
+            await asyncio.sleep(0.05)
+
+            # Enqueue 1 more → total_size == 1, max == 2, 1 slot left
+            f_fill = asyncio.ensure_future(
+                queue.submit(unit_id=1, priority=RequestPriority.READ, coroutine_factory=blocking_op)
+            )
+            await asyncio.sleep(0.05)
+
+            # Hold the lock so both new submits pass size check then block on lock acquire
+            await queue._lock.acquire()
+
+            # Launch 2 concurrent submits — both see total_size=1 < max=2, pass check
+            f_a = asyncio.ensure_future(
+                queue.submit(unit_id=2, priority=RequestPriority.READ, coroutine_factory=blocking_op)
+            )
+            f_b = asyncio.ensure_future(
+                queue.submit(unit_id=3, priority=RequestPriority.READ, coroutine_factory=blocking_op)
+            )
+            await asyncio.sleep(0.05)  # let both pass size check and block on lock
+
+            # Release lock — they'll acquire sequentially and enqueue
+            queue._lock.release()
+            await asyncio.sleep(0.1)
+
+            # Bug: total_size == 3 > max == 2 (both passed stale size check)
+            # Fix: second submit sees total_size == 2 >= max inside lock → QueueFullError
+            assert queue.total_size <= config.max_queue_size, (
+                f"total_size={queue.total_size} exceeded max={config.max_queue_size}"
+            )
+
+            # Cleanup
+            gate.set()
+            for f in [f_block, f_fill, f_a, f_b]:
+                try:
+                    await asyncio.wait_for(f, timeout=2.0)
+                except (asyncio.TimeoutError, ModbusQueueFullError, asyncio.CancelledError):
+                    pass
+        finally:
+            if queue._lock.locked():
+                queue._lock.release()
+            await queue.stop()
+
+    @pytest.mark.asyncio
     async def test_stale_request_no_cb_event(self):
         """過期跳過的 request 不影響 CB failure_count"""
         gate = asyncio.Event()

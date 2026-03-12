@@ -163,13 +163,13 @@ class ModbusRequestQueue:
         if not cb.allows_request():
             raise ModbusCircuitBreakerError(unit_id)
 
-        if self._config.max_queue_size > 0 and self._total_size >= self._config.max_queue_size:
-            raise ModbusQueueFullError(f"Request queue is full (max_size={self._config.max_queue_size})")
-
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[Any] = loop.create_future()
-
         async with self._lock:
+            if self._config.max_queue_size > 0 and self._total_size >= self._config.max_queue_size:
+                raise ModbusQueueFullError(f"Request queue is full (max_size={self._config.max_queue_size})")
+
+            loop = asyncio.get_running_loop()
+            future: asyncio.Future[Any] = loop.create_future()
+
             self._sequence += 1
             request = ModbusRequest(
                 priority=priority,
