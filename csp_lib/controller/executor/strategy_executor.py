@@ -196,9 +196,7 @@ class StrategyExecutor:
             # 等待觸發或策略切換
             trigger_task = asyncio.ensure_future(self._trigger_event.wait())
             changed_task = asyncio.ensure_future(self._strategy_changed_event.wait())
-            done, pending = await asyncio.wait(
-                [trigger_task, changed_task], return_when=asyncio.FIRST_COMPLETED
-            )
+            done, pending = await asyncio.wait([trigger_task, changed_task], return_when=asyncio.FIRST_COMPLETED)
             for t in pending:
                 t.cancel()
             if trigger_task in done:
