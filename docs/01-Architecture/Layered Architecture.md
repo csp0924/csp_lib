@@ -197,7 +197,7 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 
 **對應模組**：[[_MOC Equipment]]
 
-建構於通訊層之上，提供完整的設備抽象。v0.4.1 新增 CAN 設備支援。
+建構於通訊層之上，提供完整的設備抽象。v0.4.2 新增 CAN 設備支援。
 
 **[[AsyncModbusDevice]]** 整合了：
 
@@ -207,13 +207,13 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 - **傳輸排程**：[[ReadScheduler]]（固定 + 輪替）、[[PointGrouper]]（暫存器合併）、[[GroupReader]]（批次讀取）
 - **事件系統**：[[DeviceEventEmitter]]（9 種非同步事件），詳見 [[Event System]]
 
-**[[AsyncCANDevice]]**（v0.4.1 新增）整合了：
+**[[AsyncCANDevice]]**（v0.4.2 新增）整合了：
 
 - **幀定義**：[[CANRxFrameDefinition]] 宣告式 RX 幀映射
 - **週期發送**：[[PeriodicSendScheduler]] 管理週期 CAN 幀發送
 - **事件系統**：與 AsyncModbusDevice 共用 [[DeviceEventEmitter]]
 
-**[[DeviceProtocol]]**（v0.4.1 新增）：`@runtime_checkable Protocol`，定義通用設備介面契約，讓 Integration 層可以統一處理 Modbus 與 CAN 設備。
+**[[DeviceProtocol]]**（v0.4.2 新增）：`@runtime_checkable Protocol`，定義通用設備介面契約，讓 Integration 層可以統一處理 Modbus 與 CAN 設備。
 
 ### Layer 3: Integration 整合層
 
@@ -221,13 +221,13 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 
 膠水層，負責將設備層的資料轉換為控制策略所需的上下文，並將策略輸出路由回設備：
 
-- [[DeviceRegistry]] — Trait-based 雙索引設備查詢（v0.4.1 支援 Capability-based 查詢）
+- [[DeviceRegistry]] — Trait-based 雙索引設備查詢（v0.4.2 支援 Capability-based 查詢）
 - [[ContextBuilder]] — 聚合設備數據，建構 [[StrategyContext]]（支援 [[CapabilityContextMapping]]）
 - [[CommandRouter]] — 將 [[Command]] 路由到目標設備（支援 [[CapabilityCommandMapping]]）
-- [[SystemController]] — 完整系統控制器，整合 [[ModeManager]]、[[ProtectionGuard]]、[[CascadingStrategy]]（v0.4.1 支援 [[EventDrivenOverride]]、實作 [[ScheduleModeController]] Protocol）
+- [[SystemController]] — 完整系統控制器，整合 [[ModeManager]]、[[ProtectionGuard]]、[[CascadingStrategy]]（v0.4.2 支援 [[EventDrivenOverride]]、實作 [[ScheduleModeController]] Protocol）
 - [[GroupControllerManager]] — 多群組控制器管理，為每組設備建立獨立 [[SystemController]]
-- [[PowerDistributor]] — 功率分配器抽象（v0.4.1），含 EqualDistributor、ProportionalDistributor、SOCBalancingDistributor
-- [[HeartbeatService]] — 心跳寫入服務（v0.4.1），支援 TOGGLE / INCREMENT / CONSTANT 模式
+- [[PowerDistributor]] — 功率分配器抽象（v0.4.2），含 EqualDistributor、ProportionalDistributor、SOCBalancingDistributor
+- [[HeartbeatService]] — 心跳寫入服務（v0.4.2），支援 TOGGLE / INCREMENT / CONSTANT 模式
 
 ### Layer 4: Controller 控制策略層
 
@@ -246,16 +246,16 @@ csp_lib 採用嚴格的由下往上分層架構，每層只依賴下一層的公
 | [[StopStrategy]] | 停機 |
 | [[BypassStrategy]] | 旁路 |
 | [[CascadingStrategy]] | 多策略功率級聯分配 |
-| [[LoadSheddingStrategy]] | 階段性負載卸載（v0.4.1） |
+| [[LoadSheddingStrategy]] | 階段性負載卸載（v0.4.2） |
 
 保護規則鏈：[[SOCProtection]] -> [[ReversePowerProtection]] -> [[SystemAlarmProtection]]
 
-v0.4.1 新增事件驅動覆蓋機制：
+v0.4.2 新增事件驅動覆蓋機制：
 - [[EventDrivenOverride]] — `@runtime_checkable Protocol`，條件驅動的自動 override
 - [[AlarmStopOverride]] — 告警自動停機（內建實現）
 - [[ContextKeyOverride]] — 通用 context key 觸發（內建實現）
 
-v0.4.1 新增排程模式橋接協定：
+v0.4.2 新增排程模式橋接協定：
 - [[ScheduleModeController]] — `@runtime_checkable Protocol`，供 ScheduleService (L5) 驅動 SystemController (L6) 的排程模式切換，避免 Manager 層直接依賴 Integration 層
 
 ### Layer 5: Manager 管理層
@@ -270,7 +270,7 @@ v0.4.1 新增排程模式橋接協定：
 - [[DataUploadManager]] — 讀取數據批次上傳
 - [[WriteCommandManager]] — 外部命令執行與審計
 - [[StateSyncManager]] — Redis 即時狀態同步
-- [[ScheduleService]] — 排程服務（v0.4.1），透過 [[ScheduleModeController]] Protocol 驅動策略切換
+- [[ScheduleService]] — 排程服務（v0.4.2），透過 [[ScheduleModeController]] Protocol 驅動策略切換
 
 ### Layer 0: Core 基礎層
 
@@ -282,7 +282,7 @@ v0.4.1 新增排程模式橋接協定：
 - [[AsyncLifecycleMixin]] — 統一 async 生命週期管理（start/stop/async with）
 - [[HealthCheckable]] / [[HealthReport]] — 健康檢查協定
 - 錯誤階層：`DeviceError` → `DeviceConnectionError`、`CommunicationError`、`AlarmError`、`ConfigurationError`
-- [[CircuitBreaker]] / [[CircuitState]] / [[RetryPolicy]] — 通用韌性模式（v0.4.1 從 Modbus 層提升至 Core）
+- [[CircuitBreaker]] / [[CircuitState]] / [[RetryPolicy]] — 通用韌性模式（v0.4.2 從 Modbus 層提升至 Core）
 
 ### 儲存層
 

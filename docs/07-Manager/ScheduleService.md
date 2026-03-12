@@ -35,7 +35,7 @@ SystemController → ModeManager.update_mode_strategy()
 StrategyExecutor.set_strategy()
 ```
 
-> [!important] v0.4.1 破壞性變更
+> [!important] v0.4.2 破壞性變更
 > `ScheduleService.__init__` 的 `schedule_strategy` 參數已改為 `mode_controller`。
 > 舊版接受 `ScheduleStrategy` 實例；新版接受實作 [[ScheduleModeController]] Protocol 的物件（通常為 `SystemController`）。
 

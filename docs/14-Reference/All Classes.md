@@ -38,7 +38,7 @@ WHERE contains(tags, "type/class") AND contains(tags, "layer/modbus")
 SORT file.name ASC
 ```
 
-### CAN（v0.4.1）
+### CAN（v0.4.2）
 
 ```dataview
 TABLE source AS "來源模組"

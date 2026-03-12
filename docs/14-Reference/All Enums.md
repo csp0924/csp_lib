@@ -64,11 +64,11 @@ SORT file.name ASC
 | [[HealthStatus]] | `HEALTHY`, `DEGRADED`, `UNHEALTHY` |
 | [[CircuitState]] | `CLOSED`, `OPEN`, `HALF_OPEN` |
 
-### CAN 層（v0.4.1）
+### CAN 層（v0.4.2）
 
 （CAN 層目前無獨立 Enum，以 dataclass 配置為主）
 
-### Modbus 層（Queue 相關，v0.4.1）
+### Modbus 層（Queue 相關，v0.4.2）
 
 | 列舉 | 值 |
 |------|------|

@@ -8,8 +8,8 @@ Demonstrates:
   - on_activate() / on_deactivate() lifecycle hooks for state reset
   - Triggered (event-driven) strategy for load shedding
   - Wiring custom strategies into StrategyExecutor
-  - required_capabilities: declaring device capability requirements (v0.4.1)
-  - discover_strategies: plugin discovery via entry_points (v0.4.1)
+  - required_capabilities: declaring device capability requirements (v0.4.2)
+  - discover_strategies: plugin discovery via entry_points (v0.4.2)
 
 Scenario A (PF Adjustment):
   A PF correction strategy that uses PID control to maintain a target

@@ -9,7 +9,7 @@ tags: [type/concept, status/complete]
 
 csp_lib 採用事件驅動架構，設備狀態變化透過 [[DeviceEventEmitter]] 通知所有訂閱者。事件系統基於 `asyncio.Queue`，實現非阻塞的發布/訂閱模式。
 
-v0.4.1 重要：[[AsyncCANDevice]] 與 [[AsyncModbusDevice]] 共用同一套事件系統，所有 9 種事件皆適用於兩種設備類型。
+v0.4.2 重要：[[AsyncCANDevice]] 與 [[AsyncModbusDevice]] 共用同一套事件系統，所有 9 種事件皆適用於兩種設備類型。
 
 ## DeviceEventEmitter
 
@@ -108,7 +108,7 @@ AsyncModbusDevice
 
 ## CAN 設備的事件特性
 
-[[AsyncCANDevice]]（v0.4.1）的事件行為與 [[AsyncModbusDevice]] 相同，但有以下差異：
+[[AsyncCANDevice]]（v0.4.2）的事件行為與 [[AsyncModbusDevice]] 相同，但有以下差異：
 
 | 特性 | AsyncModbusDevice | AsyncCANDevice |
 |------|------------------|---------------|
