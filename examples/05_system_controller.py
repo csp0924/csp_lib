@@ -9,8 +9,8 @@ Demonstrates:
   - Bypass mode: stops all commands AND heartbeat
   - CascadingStrategy: multi-strategy power allocation (PQ + QV)
   - Auto-stop on alarm
-  - EventDrivenOverride: automatic push/pop override on context conditions (v0.4.1)
-  - PowerDistributor: per-device power distribution (v0.4.1)
+  - EventDrivenOverride: automatic push/pop override on context conditions (v0.4.2)
+  - PowerDistributor: per-device power distribution (v0.4.2)
 
 Scenario:
   A 1MW ESS site with full production controls:

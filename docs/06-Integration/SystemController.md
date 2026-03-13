@@ -60,7 +60,7 @@ source: csp_lib/integration/system_controller.py
 | `register_event_override(override)` | 註冊事件驅動 override（見[[EventDrivenOverride]]） |
 | `trigger()` | 手動觸發策略執行 |
 
-### 排程模式控制（v0.4.1 新增）
+### 排程模式控制（v0.4.2 新增）
 
 `SystemController` 實作 [[ScheduleModeController]] Protocol，供 `ScheduleService` 透過協定介面驅動模式切換，無需直接依賴 Integration 層。
 

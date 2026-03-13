@@ -157,7 +157,7 @@ await executor.run()                   # 開始執行迴圈
 
 ---
 
-## required_capabilities（v0.4.1 新增）
+## required_capabilities（v0.4.2 新增）
 
 覆寫 `required_capabilities` 屬性，宣告策略所需的設備能力。`SystemController` 在 `register_mode()` 時自動驗證，若找不到符合的設備會記錄警告（不拋出例外）：
 
@@ -194,7 +194,7 @@ controller.register_mode("battery_ctrl", MyBatteryStrategy(), ModePriority.SCHED
 
 ---
 
-## 策略插件發現機制（v0.4.1 新增）
+## 策略插件發現機制（v0.4.2 新增）
 
 使用 `discover_strategies()` 自動掃描已安裝的第三方策略插件。插件透過 `pyproject.toml` 的 entry_points 機制註冊：
 

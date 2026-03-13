@@ -17,8 +17,8 @@ created: 2026-02-17
 
 ScheduleStrategy 作為策略容器，可在運行期間動態切換所包裝的策略。當無排程時使用 [[StopStrategy]] 作為預設 fallback。切換策略時自動呼叫舊策略的 `on_deactivate()` 和新策略的 `on_activate()`。
 
-> [!note] v0.4.1 架構調整
-> v0.4.1 之後，`ScheduleService` 不再持有 `ScheduleStrategy` 實例。排程驅動的策略切換改由 [[ScheduleModeController]] Protocol → `SystemController.activate_schedule_mode()` → `ModeManager.update_mode_strategy()` 正規路徑完成。`ScheduleStrategy` 類別保留，向後相容。若仍需手動使用排程容器策略（例如不搭配 `ScheduleService` 的場景），此類別仍然適用。
+> [!note] v0.4.2 架構調整
+> v0.4.2 之後，`ScheduleService` 不再持有 `ScheduleStrategy` 實例。排程驅動的策略切換改由 [[ScheduleModeController]] Protocol → `SystemController.activate_schedule_mode()` → `ModeManager.update_mode_strategy()` 正規路徑完成。`ScheduleStrategy` 類別保留，向後相容。若仍需手動使用排程容器策略（例如不搭配 `ScheduleService` 的場景），此類別仍然適用。
 
 ## 執行配置
 
@@ -65,4 +65,4 @@ await schedule.update_schedule(None)  # 無排程 -> StopStrategy
 - [[StopStrategy]] — 預設 fallback 策略
 - [[ModeManager]] — 通常作為 SCHEDULE 優先權的 base mode
 - [[StrategyExecutor]] — 負責執行 ScheduleStrategy
-- [[ScheduleModeController]] — v0.4.1 新增：ScheduleService 使用的排程模式控制協定（不再依賴本類別）
+- [[ScheduleModeController]] — v0.4.2 新增：ScheduleService 使用的排程模式控制協定（不再依賴本類別）

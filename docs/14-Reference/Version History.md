@@ -11,7 +11,7 @@ created: 2026-02-17
 
 ---
 
-## [0.4.1] - 2026-03-06
+## [0.4.2] - 2026-03-06
 
 ### Added
 
@@ -115,7 +115,7 @@ created: 2026-02-17
 ### Breaking Changes
 
 > [!warning] Breaking Change
-> v0.4.1 為 minor 版本，允許破壞性變更（pre-1.0 語義）。
+> v0.4.2 為 minor 版本，允許破壞性變更（pre-1.0 語義）。
 
 - **ScheduleService 建構子** (`csp_lib.manager.schedule.service`): `schedule_strategy: ScheduleStrategy` 參數改為 `mode_controller: ScheduleModeController`。原本直接傳入排程策略實例；新版傳入實作 [[ScheduleModeController]] Protocol 的控制器（通常為 `SystemController`）。策略的建立與切換現由服務內部透過 `ScheduleModeController` 介面完成，走 `ModeManager` 正規生命週期路徑。
 
@@ -126,7 +126,7 @@ created: 2026-02-17
       schedule_strategy=schedule_strategy,
   )
 
-  # 新版（v0.4.1）
+  # 新版（v0.4.2）
   service = ScheduleService(
       config=..., repository=..., factory=...,
       mode_controller=system_controller,   # 實作 ScheduleModeController

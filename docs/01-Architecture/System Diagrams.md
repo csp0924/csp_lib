@@ -8,13 +8,13 @@ created: 2026-03-06
 
 # System Diagrams
 
-csp_lib v0.4.1 系統圖表集，以 Mermaid 語法呈現系統總覽、核心流程、狀態機與設備生命週期。
+csp_lib v0.4.2 系統圖表集，以 Mermaid 語法呈現系統總覽、核心流程、狀態機與設備生命週期。
 
 ---
 
 ## 1. 系統總覽架構圖
 
-v0.4.1 完整 8 層架構。依賴方向由下往上；CAN（Layer 2b）與 Modbus（Layer 2a）並列於 Layer 2。
+v0.4.2 完整 8 層架構。依賴方向由下往上；CAN（Layer 2b）與 Modbus（Layer 2a）並列於 Layer 2。
 
 ```mermaid
 graph TB
@@ -108,7 +108,7 @@ Bypass / LoadShedding"]
 | 元件 | 職責 | 頁面 |
 |------|------|------|
 | `AsyncLifecycleMixin` | 所有生命週期元件的 `async with` 基底 | [[Layered Architecture]] |
-| `CircuitBreaker` | 通用斷路器（Core 層，v0.4.1 移入） | [[_MOC Core]] |
+| `CircuitBreaker` | 通用斷路器（Core 層，v0.4.2 移入） | [[_MOC Core]] |
 | `DeviceProtocol` | 統一 Modbus/CAN 設備介面的 Protocol | [[DeviceProtocol]] |
 | `SystemController` | 頂層控制器，整合所有 Layer 4–6 元件 | [[SystemController]] |
 | `PowerDistributor` | 系統級 Command 分配到多設備 | [[PowerDistributor]] |
